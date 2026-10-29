@@ -171,3 +171,10 @@ os.environ["ENABLE_NODEREAL"] = "0"
 ```
 
 The scanner will then use Etherscan and GoPlus fallbacks for creator context. An empty `related_deployments` array is not a scan failure and does not stop the batch.
+
+
+## Bounded factory-candidate review
+
+After resolving creation metadata, the scanner performs **one extra static review at most**: it inspects a `factory_candidate` only when the creator also made at least one nearby call to that same destination within the bounded history response. The result is stored in `related_contract_reviews`. It does not recursively follow candidate contracts. If verified source is missing or the candidate is an unsupported proxy, it records a low-transparency skip and continues. With `--ai`, DeepSeek receives the linked contract only if its own Slither/source-pattern score reaches the configured threshold. GoPlus risk flags alone do not trigger AI review.
+
+This helps inspect likely factory/launchpad code without aggressively chasing every related address. A candidate factory is not necessarily a fund-holding protocol; review its role and source before spending further time on it.
