@@ -307,7 +307,7 @@ def discover_github_repositories(days=7, limit=30, per_query=30):
 
 
 def _walk_records(obj, max_records=2000):
-    """Yield plausible contest/program records from differently shaped public APIs."""
+    """Yield nested records for APIs whose response shape varies by endpoint."""
     found = []
     stack = [obj]
     seen = set()
@@ -319,10 +319,16 @@ def _walk_records(obj, max_records=2000):
         if not isinstance(current, dict):
             continue
         keys = {str(k).lower() for k in current.keys()}
-        has_name = bool(keys.intersection({"name", "title", "projectname", "protocolname", "slug"}))
-        has_link = bool(keys.intersection({"url", "link", "href", "contesturl", "competitionurl", "github", "githuburl", "repourl", "repositoryurl"}))
+        has_name = bool(keys.intersection({
+            "name", "title", "projectname", "project", "protocolname", "slug",
+            "contest_name", "contestname",
+        }))
+        has_link = bool(keys.intersection({
+            "url", "link", "href", "contesturl", "competitionurl", "programurl",
+            "github", "githuburl", "repourl", "repositoryurl",
+        }))
         if has_name and has_link:
-            fingerprint = json.dumps(current, sort_keys=True, default=str)[:1200]
+            fingerprint = json.dumps(current, sort_keys=True, default=str)[:1600]
             if fingerprint not in seen:
                 seen.add(fingerprint)
                 found.append(current)
@@ -341,52 +347,224 @@ def _first_value(row, names):
     return None
 
 
+def _asset_url_address(url):
+    if not isinstance(url, str):
+        return None
+    match = re.search(r"0x[a-fA-F0-9]{40}", url)
+    return match.group(0) if match else None
+
+
+def _immunefi_status(row, now):
+    launch = _parse_datetime(row.get("launchDate"))
+    end = _parse_datetime(row.get("endDate"))
+    if launch and launch > now:
+        return "upcoming", launch, end
+    if end and end <= now:
+        return "ended", launch, end
+    return "active", launch, end
+
+
+def _active_cantina_status(row, now):
+    status = str(row.get("status") or "").strip().lower()
+    timeframe = row.get("timeframe") if isinstance(row.get("timeframe"), dict) else {}
+    start = _parse_datetime(timeframe.get("start") or row.get("startDate") or row.get("start_date"))
+    end = _parse_datetime(timeframe.get("end") or row.get("endDate") or row.get("end_date"))
+    if status in ("complete", "completed", "ended", "closed", "archived", "cancelled", "canceled"):
+        return None, start, end
+    if start and start > now:
+        return "upcoming", start, end
+    if status in ("live", "active", "open", "running", "in_progress"):
+        return "active", start, end
+    if end and end > now:
+        return "active", start, end
+    return None, start, end
+
+
 def discover_audit_pipelines(limit_per_source=300):
-    """Normalize public audit/contest lists. Feeds are leads; verify status and scope at source."""
+    """Collect structured, fresh bounty/contest leads; do not label watchlists as live audits."""
     if limit_per_source < 1:
         raise ValueError("limit_per_source must be positive")
     feeds = [
         ("Immunefi", "https://immunefi.com/public-api/bounties.json"),
         ("Code4rena", "https://code4rena.com/api/v1/audits"),
         ("Cantina", "https://cantina.xyz/api/v0/competitions"),
-        ("Sherlock", "https://audits.sherlock.xyz/api/contests"),
+        ("Sherlock", "https://mainnet-contest.sherlock.xyz/contests"),
     ]
     output = []
     warnings = []
+    now = utc_now()
+    recent_cutoff = now - timedelta(days=7)
     for platform, url in feeds:
         try:
             payload = get_json(url, timeout=45)
-            rows = _walk_records(payload, max_records=limit_per_source * 4)
             added = 0
-            for row in rows:
-                title = _first_value(row, ("name", "title", "projectName", "protocolName", "slug"))
-                page_url = _first_value(row, ("url", "link", "href", "contestUrl", "competitionUrl", "programUrl"))
-                repo_url = _first_value(row, ("repoUrl", "repositoryUrl", "githubUrl", "github", "sourceUrl", "repo"))
-                status = _first_value(row, ("status", "state", "contestStatus", "phase"))
-                if isinstance(page_url, str) and page_url.startswith("/"):
-                    base = {
-                        "Immunefi": "https://immunefi.com",
-                        "Code4rena": "https://code4rena.com",
-                        "Cantina": "https://cantina.xyz",
-                        "Sherlock": "https://audits.sherlock.xyz",
-                    }[platform]
-                    page_url = base + page_url
-                output.append({
-                    "source": platform,
-                    "title": str(title)[:300] if title is not None else "Untitled public program",
-                    "url": page_url if isinstance(page_url, str) else None,
-                    "repository_url": repo_url if isinstance(repo_url, str) else None,
-                    "status_hint": str(status)[:100] if status is not None else None,
-                    "record_excerpt": json.dumps(row, ensure_ascii=False, default=str)[:2200],
-                    "candidate_evidence": "Discovered from a public audit/bug-bounty feed. Confirm current status, scope, submission rules, and whether the source revision is eligible before reviewing.",
-                })
-                added += 1
-                if added >= limit_per_source:
-                    break
-            print(f"[audit feed] {platform}: {added} record(s)")
-            if not rows:
-                warnings.append(f"{platform}: response shape contained no recognizable records")
-        except (requests.RequestException, ValueError, RuntimeError) as exc:
+
+            if platform == "Immunefi":
+                # This endpoint is a direct list of programs. Preserve the dates,
+                # languages, eligibility flags, and the in-scope contract assets
+                # rather than flattening each program into an untraceable blob.
+                rows = payload if isinstance(payload, list) else []
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    slug = str(row.get("slug") or "").strip("/")
+                    title = row.get("project") or row.get("name") or slug
+                    if not slug or not title:
+                        continue
+                    status, launch, end = _immunefi_status(row, now)
+                    if status == "ended":
+                        continue
+                    assets = [
+                        asset for asset in (row.get("assets") or [])
+                        if isinstance(asset, dict)
+                        and str(asset.get("type") or "").lower() == "smart_contract"
+                        and isinstance(asset.get("url"), str)
+                        and asset.get("url").rstrip("/") != "https://immunefi.com"
+                    ]
+                    assets.sort(
+                        key=lambda asset: _parse_datetime(asset.get("addedAt")) or datetime.min.replace(tzinfo=timezone.utc),
+                        reverse=True,
+                    )
+                    fresh_assets = []
+                    for asset in assets:
+                        added_at = _parse_datetime(asset.get("addedAt"))
+                        if added_at and added_at >= recent_cutoff:
+                            fresh_assets.append({
+                                "id": asset.get("id"),
+                                "url": asset.get("url"),
+                                "address": _asset_url_address(asset.get("url")),
+                                "description": asset.get("description"),
+                                "added_at": asset.get("addedAt"),
+                                "type": asset.get("type"),
+                            })
+                    updated_at = _parse_datetime(row.get("updatedDate"))
+                    output.append({
+                        "source": "Immunefi",
+                        "record_type": "bug_bounty_program",
+                        "title": str(title)[:300],
+                        "slug": slug,
+                        "url": f"https://immunefi.com/bug-bounty/{quote(slug, safe='')}/",
+                        "status_hint": status,
+                        "active_opportunity": status in ("active", "upcoming"),
+                        "launch_date": row.get("launchDate"),
+                        "end_date": row.get("endDate"),
+                        "updated_at": row.get("updatedDate"),
+                        "days_until_end": max(0, (end - now).days) if end and end > now else None,
+                        "max_bounty_usd": row.get("maxBounty"),
+                        "program_type": row.get("programType"),
+                        "product_type": row.get("productType"),
+                        "project_type": row.get("projectType"),
+                        "ecosystems": row.get("ecosystem") or [],
+                        "languages": row.get("language") or [],
+                        "invite_only": bool(row.get("inviteOnly")),
+                        "kyc_required": bool(row.get("kyc")),
+                        "smart_contract_asset_count": len(assets),
+                        "smart_contract_assets_added_last_7d": len(fresh_assets),
+                        "fresh_smart_contract_assets": fresh_assets[:12],
+                        "recently_updated": bool(updated_at and updated_at >= recent_cutoff),
+                        "candidate_evidence": (
+                            "Current public bug-bounty program metadata. Fresh scope additions are listed separately; "
+                            "confirm program rules, scope, and access requirements before research."
+                        ),
+                    })
+                    added += 1
+                    if added >= limit_per_source:
+                        break
+
+            elif platform == "Cantina":
+                rows = _walk_records(payload, max_records=limit_per_source * 4)
+                for row in rows:
+                    page_url = _first_value(row, ("url", "link", "href", "contestUrl", "competitionUrl"))
+                    if not isinstance(page_url, str) or "/competitions/" not in page_url:
+                        continue
+                    status, start_at, end_at = _active_cantina_status(row, now)
+                    if not status:
+                        continue
+                    timeframe = row.get("timeframe") if isinstance(row.get("timeframe"), dict) else {}
+                    company = row.get("company") if isinstance(row.get("company"), dict) else {}
+                    repo_hint = company.get("github")
+                    repo_url = (
+                        repo_hint if isinstance(repo_hint, str) and repo_hint.startswith("http")
+                        else (f"https://github.com/{repo_hint}" if isinstance(repo_hint, str) and "/" not in repo_hint else None)
+                    )
+                    output.append({
+                        "source": "Cantina",
+                        "record_type": "audit_competition",
+                        "title": str(row.get("name") or "Untitled competition")[:300],
+                        "url": page_url,
+                        "status_hint": status,
+                        "active_opportunity": status == "active",
+                        "start_date": timeframe.get("start") or row.get("startDate") or row.get("start_date"),
+                        "end_date": timeframe.get("end") or row.get("endDate") or row.get("end_date"),
+                        "days_until_end": max(0, (end_at - now).days) if end_at and end_at > now else None,
+                        "company": company.get("name"),
+                        "repository_url": repo_url,
+                        "candidate_evidence": "Contest-level record from Cantina's public competitions API. Confirm published scope, deadline, and current status on the official page.",
+                    })
+                    added += 1
+                    if added >= limit_per_source:
+                        break
+
+            elif platform == "Sherlock":
+                # Public contest API shape: {"page": ..., "next_page": ..., "items": [...]}
+                rows = payload.get("items", []) if isinstance(payload, dict) else payload if isinstance(payload, list) else []
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    contest_id = row.get("id") or row.get("contest_id") or row.get("contestId")
+                    title = _first_value(row, ("contest_name", "contestName", "name", "title"))
+                    if not title:
+                        continue
+                    raw_status = str(_first_value(row, ("status", "state", "contestStatus")) or "").strip().lower()
+                    start_at = _parse_datetime(_first_value(row, ("start_date", "startDate", "start_time", "startTime")))
+                    end_at = _parse_datetime(_first_value(row, ("end_date", "endDate", "end_time", "endTime")))
+                    if raw_status in ("complete", "completed", "ended", "closed", "finished", "judging", "cancelled", "canceled"):
+                        continue
+                    if raw_status not in ("running", "live", "active", "open", "upcoming", "scheduled"):
+                        if not (start_at and start_at > now):
+                            continue
+                    status = "upcoming" if start_at and start_at > now else "active"
+                    page_url = row.get("url") or (f"https://audits.sherlock.xyz/contests/{quote(str(contest_id), safe='')}" if contest_id is not None else "https://audits.sherlock.xyz/contests")
+                    output.append({
+                        "source": "Sherlock",
+                        "record_type": "audit_contest",
+                        "title": str(title)[:300],
+                        "url": page_url,
+                        "contest_id": contest_id,
+                        "status_hint": status,
+                        "active_opportunity": status == "active",
+                        "start_date": _first_value(row, ("start_date", "startDate", "start_time", "startTime")),
+                        "end_date": _first_value(row, ("end_date", "endDate", "end_time", "endTime")),
+                        "days_until_end": max(0, (end_at - now).days) if end_at and end_at > now else None,
+                        "reported_submission_count": row.get("num_competition_issues"),
+                        "candidate_evidence": "Contest-level record from Sherlock's public API. Confirm scope, rules, and dates on the official contest page.",
+                    })
+                    added += 1
+                    if added >= limit_per_source:
+                        break
+
+            elif platform == "Code4rena":
+                # The queried endpoint currently returns project/social directory
+                # entries, not reliable active-contest metadata. Do not count them
+                # as live audits.
+                rows = _walk_records(payload, max_records=limit_per_source * 4)
+                directory_count = 0
+                for row in rows:
+                    page_url = _first_value(row, ("url", "link", "href", "contestUrl", "competitionUrl"))
+                    if isinstance(page_url, str) and any(host in page_url.lower() for host in ("x.com/", "twitter.com/")):
+                        directory_count += 1
+                if directory_count:
+                    warnings.append(
+                        f"Code4rena: endpoint returned {directory_count} project/social directory row(s), "
+                        "not contest-level scope/status; none counted as active contests."
+                    )
+                else:
+                    warnings.append("Code4rena: no verified contest-shaped records found in the queried endpoint.")
+
+            print(f"[audit feed] {platform}: {added} active/upcoming record(s)")
+            if added == 0 and platform in ("Cantina", "Sherlock"):
+                warnings.append(f"{platform}: no active/upcoming contest records returned")
+        except (requests.RequestException, ValueError, RuntimeError, TypeError) as exc:
             warnings.append(f"{platform}: {str(exc)[:220]}")
         time.sleep(0.25)
     if warnings:
@@ -394,7 +572,6 @@ def discover_audit_pipelines(limit_per_source=300):
         for item in warnings:
             print(" - " + item)
     return output
-
 
 def discover_recent_deployments(network="eth", blocks=20, limit=200):
     """Inspect recent mined blocks for direct CREATE transactions using a user RPC URL."""
