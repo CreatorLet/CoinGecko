@@ -96,3 +96,10 @@ Each static scan now also requests Etherscan V2 contract-creation metadata. Wher
 This is only a relationship heuristic. A shared deployer and nearby deployment time do **not** prove contracts belong to the same project. The scanner records these as `creation_context.related_deployments`; it does not automatically scan these addresses or call DeepSeek on them. Review the code and source verification of each related address before adding it to a future scan.
 
 The lookup is skipped if `ETHERSCAN_API_KEY` is unavailable, and partial if the target creation transaction is not present in the creator's recent indexed history (the current query checks up to 100 recent records per transaction endpoint). API plans and chain coverage may limit results.
+
+
+### Creator metadata troubleshooting
+
+The report's `creation_context.reason` now includes the Etherscan API response (status/message/result) if `getcontractcreation` cannot return a record. This is intentional: source-code retrieval working does not prove every API endpoint is available under the same key or plan. The creation endpoint expects `contractaddresses` (up to five comma-separated addresses), and a valid response includes `contractCreator`, `txHash`, `blockNumber`, and `timestamp`.
+
+The scanner now uses that response's timestamp directly for the 14-day related-deployment window instead of trying to recover the target's timestamp from the creator's recent transaction history. It requests up to 1,000 normal and internal transactions for related-deployment discovery. Any transaction-list API warnings appear in `creation_context.transaction_lookup_warning`.
