@@ -753,6 +753,41 @@ RUST_PATTERNS = (
     ("close-account", re.compile(r"\bclose\s*=", re.I), 8, "Account close behavior: verify authorized closure and state invalidation."),
 )
 
+# These are asset-handling surface markers, not vulnerability signals. They
+# help surface code with meaningful accounting even when no risky syntax hits.
+FUND_FLOW_PATTERNS = (
+    ("token-transfer", re.compile(r"\b(?:safeTransferFrom|transferFrom|safeTransfer|transferChecked|transfer)\s*\(", re.I),
+     "Token movement or token-transfer call."),
+    ("native-value-transfer", re.compile(r"\.call\s*\{[^}]*\bvalue\s*:|\.transfer\s*\(|\.send\s*\(", re.I),
+     "Native asset transfer or value-bearing external call."),
+    ("financial-entrypoint", re.compile(
+        r"\bfunction\s+\w*(?:deposit|withdraw|redeem|borrow|repay|liquidate|swap|addLiquidity|removeLiquidity|mint|burn|settle|sweep|claim|unlock|pay|payout|seedLiquidity)\w*\s*\(",
+        re.I), "Entry point with a financial-operation name."),
+    ("balance-or-liability-accounting", re.compile(
+        r"\b(?:balanceOf|totalSupply|totalAssets|totalDebt|sharesOutstanding|cash|owed|liability|reserves?)\b",
+        re.I), "Balance, reserve, supply, or liability accounting reference."),
+    ("external-protocol-call", re.compile(
+        r"\b(?:flashLoan|flashLoanSimple|swapExactTokensForTokens|addLiquidityETH|removeLiquidity|liquidate|borrow|repay)\s*\(",
+        re.I), "Call to a protocol or market operation."),
+)
+
+
+def analyze_fund_handling(language, source, path):
+    """Describe asset-flow surfaces without treating them as vulnerability findings."""
+    found = []
+    for name, pattern, explanation in FUND_FLOW_PATTERNS:
+        hits = list(pattern.finditer(source))
+        if not hits:
+            continue
+        found.append({
+            "surface": name,
+            "reason": explanation,
+            "path": path,
+            "lines": [source.count("\n", 0, hit.start()) + 1 for hit in hits[:5]],
+            "occurrences": len(hits),
+        })
+    return found
+
 
 def analyze_source(language, source, path):
     patterns = SOLIDITY_PATTERNS if language == "Solidity" else VYPER_PATTERNS if language == "Vyper" else RUST_PATTERNS
@@ -842,6 +877,7 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
         branch = repo.get("default_branch") or "main"
         paths = repo.get("contract_paths") or []
         signals = []
+        fund_handling_signals = []
         snippets = []
         files_scanned = []
         file_hashes = []
@@ -907,6 +943,7 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
                 "duplicate_of": duplicate_of,
             })
             signals.extend(analyze_source(language, analyzed_source, path))
+            fund_handling_signals.extend(analyze_fund_handling(language, analyzed_source, path))
             snippets.append(f"FILE: {path}\n{analyzed_source}")
             file_hashes.append(source_sha256)
             time.sleep(0.05)
@@ -915,6 +952,8 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
         for signal in signals:
             weights[signal["signal"]] = max(weights.get(signal["signal"], 0), signal["weight"])
         score = min(100, sum(sorted(weights.values(), reverse=True)[:5]))
+        fund_surfaces = sorted({signal["surface"] for signal in fund_handling_signals})
+        fund_surface_score = min(100, len(fund_surfaces) * 15)
         repo_fingerprint = hashlib.sha256("\n".join(sorted(file_hashes)).encode("utf-8")).hexdigest() if file_hashes else None
         earlier_repo = first_seen_repo_fingerprint.get(repo_fingerprint) if repo_fingerprint else None
         if repo_fingerprint and not earlier_repo:
@@ -948,6 +987,12 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
             "files_scanned": files_scanned,
             "signals": signals,
             "source_signal_score": score,
+            "fund_handling_signals": fund_handling_signals,
+            "fund_handling_surface_types": fund_surfaces,
+            "fund_handling_surface_score": fund_surface_score,
+            "asset_bearing_code_candidate": bool(
+                {"token-transfer", "financial-entrypoint", "balance-or-liability-accounting"}.issubset(set(fund_surfaces))
+            ),
             "repository_source_fingerprint": repo_fingerprint,
             "duplicate_source_files": duplicate_source_files,
             "duplicate_source_file_count": len(duplicate_source_files),
@@ -973,7 +1018,10 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
         elif ai:
             result["deepseek_skipped_reason"] = f"Source score {score} below min-score {min_score}, or no readable source files."
         results.append(result)
-        print(f"[GitHub scan] {full_name}: score={score}, signals={len(signals)}, files={len(files_scanned)}, novelty={result['source_novelty']}")
+        print(
+            f"[GitHub scan] {full_name}: score={score}, signals={len(signals)}, "
+            f"fund_surfaces={len(fund_surfaces)}, files={len(files_scanned)}, novelty={result['source_novelty']}"
+        )
     return results
 
 def main():
