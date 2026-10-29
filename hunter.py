@@ -94,6 +94,115 @@ def sourcify_source(network, address):
     }
 
 
+def creation_context(network, address, window_days=14, max_related=20):
+    """
+    Passive explorer lookup for a contract's creator and nearby contracts created
+    by the same address. Same-creator linkage is only a lead, not proof of a
+    shared protocol or ownership relationship.
+    """
+    key = os.getenv("ETHERSCAN_API_KEY")
+    if not key:
+        return {"status": "skipped", "reason": "ETHERSCAN_API_KEY not configured"}
+
+    def endpoint(params):
+        request = {
+            "chainid": CHAIN_IDS[network],
+            "apikey": key,
+            **params,
+        }
+        payload = get_json(ETHERSCAN, request)
+        time.sleep(0.36)
+        if str(payload.get("status")) != "1" or not isinstance(payload.get("result"), list):
+            return []
+        return payload["result"]
+
+    try:
+        created = endpoint({
+            "module": "contract", "action": "getcontractcreation",
+            "contractaddresses": address,
+        })
+        if not created:
+            return {"status": "unavailable", "reason": "Explorer did not return creator metadata"}
+        first = created[0]
+        creator = first.get("contractCreator") or first.get("contractcreator")
+        creation_hash = first.get("txHash") or first.get("txhash")
+        context = {
+            "status": "ok",
+            "creator": creator,
+            "creation_tx": creation_hash,
+            "related_deployments": [],
+            "note": "Same-creator deployments are leads only; verify source and actual protocol relationship.",
+        }
+        if not creator or not ADDRESS.fullmatch(creator):
+            context["status"] = "partial"
+            context["reason"] = "Creator address unavailable"
+            return context
+
+        direct = endpoint({
+            "module": "account", "action": "txlist", "address": creator,
+            "startblock": 0, "endblock": 99999999, "page": 1,
+            "offset": 100, "sort": "desc",
+        })
+        internal = endpoint({
+            "module": "account", "action": "txlistinternal", "address": creator,
+            "startblock": 0, "endblock": 99999999, "page": 1,
+            "offset": 100, "sort": "desc",
+        })
+
+        rows = []
+        for tx in direct:
+            created_address = tx.get("contractAddress") or ""
+            if ADDRESS.fullmatch(created_address) and created_address.lower() != address.lower():
+                rows.append({
+                    "address": created_address,
+                    "tx_hash": tx.get("hash"),
+                    "timestamp": int(tx.get("timeStamp") or 0),
+                    "creation_type": "direct",
+                })
+        for tx in internal:
+            tx_type = str(tx.get("type") or "").lower()
+            created_address = tx.get("contractAddress") or (tx.get("to") if tx_type in ("create", "create2") else "") or ""
+            if tx_type in ("create", "create2") and ADDRESS.fullmatch(created_address) and created_address.lower() != address.lower():
+                rows.append({
+                    "address": created_address,
+                    "tx_hash": tx.get("hash"),
+                    "timestamp": int(tx.get("timeStamp") or 0),
+                    "creation_type": tx_type,
+                })
+
+        target_time = 0
+        target_hash = (creation_hash or "").lower()
+        for tx in direct + internal:
+            if (tx.get("hash") or "").lower() == target_hash:
+                try:
+                    target_time = int(tx.get("timeStamp") or 0)
+                except (TypeError, ValueError):
+                    target_time = 0
+                if target_time:
+                    break
+        # Don't infer a time window from "now": only compare when the target
+        # creation transaction was found in indexed creator history.
+        unique = {}
+        window_seconds = window_days * 24 * 60 * 60
+        for row in rows:
+            if not row["timestamp"] or not target_time:
+                continue
+            if abs(row["timestamp"] - target_time) > window_seconds:
+                continue
+            key_address = row["address"].lower()
+            if key_address not in unique:
+                unique[key_address] = row
+        context["related_deployments"] = sorted(
+            unique.values(),
+            key=lambda row: abs(row["timestamp"] - target_time)
+        )[:max_related]
+        if not target_time:
+            context["reason"] = "Creator history did not contain the target creation transaction; nearby deployment matching skipped"
+        return context
+    except (requests.RequestException, ValueError, TypeError, KeyError, RuntimeError) as exc:
+        return {"status": "error", "reason": str(exc)[:700]}
+
+
 def verified_source(network, address):
     """Prefer Etherscan V2; use Sourcify if the explorer source is unavailable."""
     problems = []
@@ -311,6 +420,7 @@ def scan_target(entry, ai=False, min_score=30):
         source = verified_source(net, address)
         result["contract_name"] = source.get("ContractName")
         result["source_provider"] = source.get("_source_provider", "Etherscan")
+        result["creation_context"] = creation_context(net, address)
         if source.get("Proxy") == "1":
             result["proxy_implementation"] = source.get("Implementation")
             result["note"] = "Proxy detected: implementation analysis is not supported in this version."
