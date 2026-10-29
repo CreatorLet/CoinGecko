@@ -1,0 +1,167 @@
+[
+  {
+    "network": "bsc",
+    "address": "0x307d754b50ce8a8da7ea8bb9c026d3104facebcf",
+    "pool": "0x6d87e412774a2a638a0412bec5b903f909321d5f",
+    "name": "BS / WBNB",
+    "reserve_usd": "112023.1203",
+    "status": "screened",
+    "contract_name": "Token",
+    "source_provider": "Etherscan",
+    "compiler_version": "0.8.33",
+    "score": 0,
+    "findings": [
+      {
+        "check": "pragma",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "5 different versions of Solidity are used:\n\t- Version constraint ^0.8.20 is used by:\n\t\t-^0.8.20 (@openzeppelin/contracts/access/Ownable.sol#4)\n\t\t-^0.8.20 (@openzeppelin/contracts/token/ERC20/ERC20.sol#4)\n\t\t-^0.8.20 (@openzeppelin/contracts/utils/Context.sol#4)\n\t- Version constraint >=0.8.4 is used by:\n\t\t->=0.8.4 (@openzeppelin/contracts/interfaces/draft-IERC6093.sol#3)\n\t- Version constraint >=0.4.16 is used by:\n\t\t->=0.4.16 (@openzeppelin/contracts/token/ERC20/IERC20.sol#4)\n\t- Version constraint >=0.6.2 is used by:\n\t\t->=0.6.2 (@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol#4)\n\t- Version constraint ^0.8.33 is used by:\n\t\t-^0.8.33 (Token.sol#2)\n",
+        "score": 0
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "Context._contextSuffixLength() (@openzeppelin/contracts/utils/Context.sol#25-27) is never used and should be removed\n",
+        "score": 0.0
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "ERC20._burn(address,uint256) (@openzeppelin/contracts/token/ERC20/ERC20.sol#229-234) is never used and should be removed\n",
+        "score": 0.0
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "Context._msgData() (@openzeppelin/contracts/utils/Context.sol#21-23) is never used and should be removed\n",
+        "score": 0.0
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint >=0.8.4 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess\n\t- AbiReencodingHeadOverflowWithStaticArrayCleanup\n\t- DirtyBytesArrayToStorage\n\t- DataLocationChangeInInternalOverride\n\t- NestedCalldataArrayAbiReencodingSizeValidation\n\t- SignedImmutables.\nIt is used by:\n\t- >=0.8.4 (@openzeppelin/contracts/interfaces/draft-IERC6093.sol#3)\n",
+        "score": 0
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint ^0.8.20 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- VerbatimInvalidDeduplication\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess.\nIt is used by:\n\t- ^0.8.20 (@openzeppelin/contracts/access/Ownable.sol#4)\n\t- ^0.8.20 (@openzeppelin/contracts/token/ERC20/ERC20.sol#4)\n\t- ^0.8.20 (@openzeppelin/contracts/utils/Context.sol#4)\n",
+        "score": 0
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint >=0.6.2 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- MissingSideEffectsOnSelectorAccess\n\t- AbiReencodingHeadOverflowWithStaticArrayCleanup\n\t- DirtyBytesArrayToStorage\n\t- NestedCalldataArrayAbiReencodingSizeValidation\n\t- ABIDecodeTwoDimensionalArrayMemory\n\t- KeccakCaching\n\t- EmptyByteArrayCopy\n\t- DynamicArrayCleanup\n\t- MissingEscapingInFormatting\n\t- ArraySliceDynamicallyEncodedBaseType\n\t- ImplicitConstructorCallvalueCheck\n\t- TupleAssignmentMultiStackSlotComponents\n\t- MemoryArrayCreationOverflow.\nIt is used by:\n\t- >=0.6.2 (@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol#4)\n",
+        "score": 0
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint >=0.4.16 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- DirtyBytesArrayToStorage\n\t- ABIDecodeTwoDimensionalArrayMemory\n\t- KeccakCaching\n\t- EmptyByteArrayCopy\n\t- DynamicArrayCleanup\n\t- ImplicitConstructorCallvalueCheck\n\t- TupleAssignmentMultiStackSlotComponents\n\t- MemoryArrayCreationOverflow\n\t- privateCanBeOverridden\n\t- SignedArrayStorageCopy\n\t- ABIEncoderV2StorageArrayWithMultiSlotElement\n\t- DynamicConstructorArgumentsClippedABIV2\n\t- UninitializedFunctionPointerInConstructor_0.4.x\n\t- IncorrectEventSignatureInLibraries_0.4.x\n\t- ExpExponentCleanup\n\t- NestedArrayFunctionCallDecoder\n\t- ZeroFunctionSelector.\nIt is used by:\n\t- >=0.4.16 (@openzeppelin/contracts/token/ERC20/IERC20.sol#4)\n",
+        "score": 0
+      }
+    ],
+    "source_signal_score": 0,
+    "source_risk_signals": [],
+    "review_score": 0,
+    "deepseek_skipped_reason": "Review priority 0 is below --min-score 30; this is a triage threshold, not proof of safety."
+  },
+  {
+    "network": "bsc",
+    "address": "0x4f49ebb49097b3119302f549dbaa928bf93fffff",
+    "pool": "0x599059c6765b4867bb0934a95765b341da325072",
+    "name": "\u8774\u8776\u94bb\u77f3 / WBNB",
+    "reserve_usd": "56748.2233",
+    "status": "screened",
+    "contract_name": "TokenV23Emit6",
+    "source_provider": "Etherscan",
+    "compiler_version": "0.8.29",
+    "score": 0,
+    "findings": [],
+    "source_signal_score": 0,
+    "source_risk_signals": [],
+    "review_score": 0,
+    "deepseek_skipped_reason": "Review priority 0 is below --min-score 30; this is a triage threshold, not proof of safety."
+  },
+  {
+    "network": "bsc",
+    "address": "0x5a81ffb9d3413d7179f7508583a0014394fc2cfa",
+    "pool": "0xf50eb23f3c8433a68e019ea453d10f6d06559d6b",
+    "name": "\u5e01\u5b89\u72d7 / USDT",
+    "reserve_usd": "41537.9337",
+    "status": "screened",
+    "contract_name": "Token",
+    "source_provider": "Etherscan",
+    "compiler_version": "0.8.34",
+    "score": 0,
+    "findings": [
+      {
+        "check": "immutable-states",
+        "impact": "Optimization",
+        "confidence": "High",
+        "description": "Token._supply (Token.sol#5) should be immutable \n",
+        "score": 0
+      }
+    ],
+    "source_signal_score": 0,
+    "source_risk_signals": [],
+    "review_score": 0,
+    "deepseek_skipped_reason": "Review priority 0 is below --min-score 30; this is a triage threshold, not proof of safety."
+  },
+  {
+    "network": "bsc",
+    "address": "0x22525733a84403209b42ed53929a16748e207777",
+    "pool": "0x31a40f64b61a23fe0962db4165c7d8d49e3434f1",
+    "name": "1105 / WBNB",
+    "reserve_usd": "32159.1986",
+    "status": "screened",
+    "contract_name": "LaunchToken",
+    "source_provider": "Etherscan",
+    "compiler_version": "0.8.28",
+    "score": 0,
+    "findings": [],
+    "source_signal_score": 0,
+    "source_risk_signals": [],
+    "review_score": 0,
+    "deepseek_skipped_reason": "Review priority 0 is below --min-score 30; this is a triage threshold, not proof of safety."
+  },
+  {
+    "network": "bsc",
+    "address": "0xd25cbc94500748a8d919b2b7a4c6eacbfa985c5b",
+    "pool": "0xa7274c7d22bd795df8a4e755ff7b402b85ee7f43",
+    "name": "BDK / WBNB",
+    "reserve_usd": "17538.5992",
+    "status": "screened",
+    "contract_name": "DigitalToken",
+    "source_provider": "Etherscan",
+    "compiler_version": "0.8.20",
+    "score": 0,
+    "findings": [
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint ^0.8.20 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- VerbatimInvalidDeduplication\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess.\nIt is used by:\n\t- ^0.8.20 (Contract.sol#2)\n",
+        "score": 0
+      },
+      {
+        "check": "immutable-states",
+        "impact": "Optimization",
+        "confidence": "High",
+        "description": "DigitalToken._totalSupply (Contract.sol#10) should be immutable \n",
+        "score": 0
+      }
+    ],
+    "source_signal_score": 0,
+    "source_risk_signals": [],
+    "review_score": 0,
+    "deepseek_skipped_reason": "Review priority 0 is below --min-score 30; this is a triage threshold, not proof of safety."
+  }
+]
