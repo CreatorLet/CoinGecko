@@ -24,7 +24,7 @@ class FrontierTriageTests(unittest.TestCase):
             {"type": "blob", "path": "script/Deploy.s.sol"},
             {"type": "blob", "path": "test/Vault.t.sol"},
             {"type": "blob", "path": "fixtures/MockToken.sol"},
-            {"type": "blob", "path": "contracts/utils/Math.sol"},
+            {"type": "blob", "path": "lib/openzeppelin/contracts/utils/Math.sol"},
             {"type": "blob", "path": "node_modules/pkg/Math.sol"},
         ]
         paths, _, _ = _candidate_contract_paths(tree)
