@@ -50,7 +50,7 @@ The old DeFiLlama TVL-ranked discovery command has been removed. Use independent
 
 The existing GeckoTerminal `discover` workflow remains available for new DEX pools. For deployment commands, configure a read-only HTTP or WebSocket RPC URL in your local runtime. Never commit RPC credentials.
 
-GitHub source search records repository creation and push times. The scanner skips test/fixture/deployment-script paths, hashes source files to flag identical code copied into different repositories, and avoids repeating DeepSeek reviews for exact duplicate repositories. Static pattern matches remain triage hints, not vulnerability findings.
+GitHub source search records repository creation and push times. The scanner skips test/fixture/deployment-script and known vendored-library paths, hashes source files to flag identical code copied into different repositories, and avoids repeating DeepSeek reviews for exact duplicate repositories. The GitHub report separately records asset-handling surface markers (token transfers, financial entry points, balance/liability accounting, and protocol calls); these are for manual-review prioritization only and do not raise the vulnerability score by themselves. Static pattern matches remain triage hints, not vulnerability findings.
 
 The audit output keeps current/upcoming opportunities separate from unverified project directories and ended contests. Immunefi records include recent smart-contract scope additions where the public feed exposes them. Confirm scope, timing, eligibility and rules on the official platform before conducting research.
 
