@@ -970,6 +970,7 @@ def scan_target(entry, ai=False, min_score=30):
               "protocol_slug": entry.get("protocol_slug"), "protocol_category": entry.get("protocol_category"),
               "target_kind": entry.get("target_kind"), "adapter_path": entry.get("adapter_path"),
               "candidate_role": entry.get("candidate_role"), "candidate_confidence": entry.get("candidate_confidence"),
+              "adapter_line": entry.get("adapter_line"),
               "candidate_evidence": entry.get("candidate_evidence"), "status": "pending"}
     try:
         # External token-risk metadata complements static analysis; API failure
@@ -1267,7 +1268,9 @@ def _extract_adapter_addresses(source, network, max_addresses=3):
         address = hit.group(0)
         if address.lower() in seen:
             continue
-        context = section[max(0, hit.start() - 180):hit.start()] + " " + section[hit.end():min(len(section), hit.end() + 80)]
+        # Role hints should come from the declaration before the literal; looking forward can
+        # accidentally see a later blacklist/token list and misclassify this address.
+        context = section[max(0, hit.start() - 180):hit.start()]
         if _ADAPTER_NEGATIVE_ROLE.search(context):
             continue
         roles = [name for name in positive_names if re.search(re.escape(name), context, re.I)]
