@@ -93,6 +93,17 @@ class FrontierTriageTests(unittest.TestCase):
         result = _active_cantina_status(row, datetime(2026, 10, 29, tzinfo=timezone.utc))
         self.assertIsNone(result[0])
 
+    def test_cantina_stale_live_badge_does_not_override_past_end_date(self):
+        row = {
+            "status": "live",
+            "timeframe": {
+                "start": "2026-10-01T00:00:00Z",
+                "end": "2026-10-08T00:00:00Z",
+            },
+        }
+        result = _active_cantina_status(row, datetime(2026, 10, 29, tzinfo=timezone.utc))
+        self.assertIsNone(result[0])
+
     def test_immunefi_expired_program_is_not_active(self):
         row = {"launchDate": "2026-01-01T00:00:00Z", "endDate": "2026-10-01T00:00:00Z"}
         status, _, _ = _immunefi_status(row, datetime(2026, 10, 29, tzinfo=timezone.utc))
