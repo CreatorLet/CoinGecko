@@ -1237,7 +1237,7 @@ def _balanced_js_value(source, start):
 def _adapter_chain_section(source, network):
     aliases = _ADAPTER_CHAIN_KEYS[network]
     alias_pattern = "|".join(re.escape(alias) for alias in aliases)
-    pattern = re.compile(r"(?i)(?<![\w$])['\"]?(?:" + alias_pattern + r")['\"]?\s*:")
+    pattern = re.compile(r"(?im)^[ \t]*['\"]?(?:" + alias_pattern + r")['\"]?\s*:")
     for match in pattern.finditer(source):
         start = match.end()
         while start < len(source) and source[start].isspace():
