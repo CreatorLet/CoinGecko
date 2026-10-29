@@ -1073,7 +1073,7 @@ def main():
                   f"goplus={row.get('goplus_risk_score', '-')}",
                   f"review={row.get('review_score', '-')}",
                   f"related_deployments={len(related)}",
-                  row.get("error", row.get("deepseek_skipped_reason", "")))
+                  row.get("error") or row.get("skip_reason") or row.get("deepseek_skipped_reason", ""))
 
 
 if __name__ == "__main__":
