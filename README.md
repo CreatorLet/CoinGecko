@@ -36,6 +36,28 @@ python hunter.py scan --input discovery.json --min-liquidity 10000 --limit 5 --o
 
 The `--limit` counts selected candidate tokens, not necessarily successful completed Slither scans. Filtering is done first, with highest-liquidity pools first; a low-liquidity or unverified contract is skipped or reported as an error. The scanner operates on the discovered **base token contract**, not automatically on the project's vault or DEX pool.
 
+
+## Separate DeFi protocol discovery lane
+
+The original **discover** command finds new GeckoTerminal pools and scans their base-token contracts. To prioritize contracts that may handle deposits, lending, staking, vaults, or liquidity, use a separate protocol lane:
+
+~~~bash
+python hunter.py discover-protocols --network bsc --min-tvl 1000000 --protocol-limit 30 --limit 40 --out protocol-discovery.json
+python hunter.py scan --input protocol-discovery.json --min-liquidity 1000000 --limit 10 --out protocol-report.json
+~~~
+
+**discover-protocols** filters the public [DeFiLlama protocols API](https://api.llama.fi/protocols) by chain, category and TVL, then inspects the corresponding public DeFiLlama adapter source for chain-scoped address literals. It records the adapter path, line, nearby role label, and confidence so candidates can be traced back to their evidence. This is a heuristic source of leads—not an authoritative contract registry. Some adapter addresses may be tokens, data providers, or other supporting contracts rather than the protocol's primary asset manager. The scan therefore still requires verified Solidity source from Etherscan/Sourcify and runs static analysis on that source.
+
+Start with a small protocol limit and address limit. Protocol discovery can make public API requests for multiple metadata records and source files, so don't set the limits unnecessarily high. Candidate TVL is used as a ranking/filtering estimate, not as proof that a particular address holds that TVL. GoPlus token-security lookups and creator/factory tracing are skipped for these protocol-contract candidates because those steps are designed for token screening. The report marks the candidate as a protocol contract and retains the candidate role/evidence.
+
+To use DeepSeek only after Slither/source screening:
+
+~~~bash
+python hunter.py scan --input protocol-discovery.json --min-liquidity 1000000 --limit 10 --min-score 30 --ai --out protocol-report.json
+~~~
+
+The existing GeckoTerminal workflow is unchanged. Both lanes remain passive source analysis: no transactions are sent and no live-contract exploit attempts are performed.
+
 ## Step 3: Optional DeepSeek review
 
 ```bash
