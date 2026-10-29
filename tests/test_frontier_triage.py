@@ -8,6 +8,7 @@ from frontier import (
     _candidate_contract_paths,
     _immunefi_status,
     _parse_datetime,
+    analyze_fund_handling,
     analyze_source,
 )
 from hunter import rank, source_risk_signals
@@ -55,6 +56,21 @@ class FrontierTriageTests(unittest.TestCase):
         signals = analyze_source("Solidity", source, "TokenOps.sol")
         self.assertNotIn("low-level-call", [row["signal"] for row in signals])
         self.assertNotIn("unchecked", [row["signal"] for row in signals])
+
+    def test_paywall_asset_flow_is_detected_without_labeling_it_a_bug(self):
+        source = """
+        contract ContentPaywall {
+            function unlockDocument(uint256 docId) external {
+                usdcToken.safeTransferFrom(msg.sender, author, authorShare);
+                isUnlocked[docId][msg.sender] = true;
+            }
+        }
+        """
+        signals = analyze_fund_handling("Solidity", source, "ContentPaywall.sol")
+        surfaces = {row["surface"] for row in signals}
+        self.assertIn("token-transfer", surfaces)
+        self.assertIn("financial-entrypoint", surfaces)
+        self.assertNotIn("source_signal_score", {row.keys() for row in signals})
 
     def test_unrelated_low_level_call_remains_visible(self):
         source = """
