@@ -67,6 +67,7 @@
       "note": "Related deployments are leads only; shared deployer and timing do not prove a shared protocol.",
       "reason": "Creation metadata succeeded, but no additional direct deployments were recovered from the bounded sender-transaction search. Factory-created deployments, RPC pagination limits, or unsupported creation records can still be missed."
     },
+    "related_contract_reviews": [],
     "contract_name": "Token",
     "source_provider": "Etherscan",
     "compiler_version": "0.8.33",
@@ -202,6 +203,7 @@
       "note": "Related deployments are leads only; shared deployer and timing do not prove a shared protocol.",
       "reason": "Creation metadata succeeded, but no additional direct deployments were recovered from the bounded sender-transaction search. Factory-created deployments, RPC pagination limits, or unsupported creation records can still be missed."
     },
+    "related_contract_reviews": [],
     "contract_name": "TokenV23Emit6",
     "source_provider": "Etherscan",
     "compiler_version": "0.8.29",
@@ -279,6 +281,7 @@
       "note": "Related deployments are leads only; shared deployer and timing do not prove a shared protocol.",
       "reason": "Creation metadata succeeded, but no additional direct deployments were recovered from the bounded sender-transaction search. Factory-created deployments, RPC pagination limits, or unsupported creation records can still be missed."
     },
+    "related_contract_reviews": [],
     "contract_name": "Token",
     "source_provider": "Etherscan",
     "compiler_version": "0.8.34",
@@ -311,7 +314,7 @@
         "creator_address": "0xfce0919415edc0269ad96ab526d263ad115d458e",
         "owner_balance": "0",
         "owner_percent": "0",
-        "holder_count": "0",
+        "holder_count": "163",
         "is_open_source": "1",
         "is_proxy": "0",
         "is_mintable": "0",
@@ -371,6 +374,15 @@
       "note": "Related deployments are leads only; shared deployer and timing do not prove a shared protocol.",
       "reason": "Creation metadata succeeded, but no additional direct deployments were recovered from the bounded sender-transaction search. Factory-created deployments, RPC pagination limits, or unsupported creation records can still be missed."
     },
+    "related_contract_reviews": [
+      {
+        "network": "bsc",
+        "address": "0x37dc44b63a0a31058a72ab0b5e53e20a1716395e",
+        "relationship": "factory_candidate_with_repeat_creator_call",
+        "status": "skipped_low_transparency",
+        "reason": "No verified source found for this linked candidate; stopped rather than chasing opaque code."
+      }
+    ],
     "contract_name": "LaunchToken",
     "source_provider": "Etherscan",
     "compiler_version": "0.8.28",
@@ -448,6 +460,7 @@
       "note": "Related deployments are leads only; shared deployer and timing do not prove a shared protocol.",
       "reason": "Creation metadata succeeded, but no additional direct deployments were recovered from the bounded sender-transaction search. Factory-created deployments, RPC pagination limits, or unsupported creation records can still be missed."
     },
+    "related_contract_reviews": [],
     "contract_name": "DigitalToken",
     "source_provider": "Etherscan",
     "compiler_version": "0.8.20",
