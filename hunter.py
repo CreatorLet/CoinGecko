@@ -367,6 +367,8 @@ def nodereal_creation_context(network, address, window_blocks=5000, max_related=
     """Get deployment metadata and enumerate nearby direct creations by its sender."""
     if network not in ("bsc", "eth"):
         return None
+    if os.getenv("ENABLE_NODEREAL", "1").strip().lower() in ("0", "false", "no", "off"):
+        return None
     created = nodereal_rpc(network, "nr_getContractCreationTransaction", [address])
     if not isinstance(created, dict):
         raise RuntimeError("NodeReal returned an unexpected contract-creation response")
