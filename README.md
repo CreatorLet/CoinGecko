@@ -37,26 +37,24 @@ python hunter.py scan --input discovery.json --min-liquidity 10000 --limit 5 --o
 The `--limit` counts selected candidate tokens, not necessarily successful completed Slither scans. Filtering is done first, with highest-liquidity pools first; a low-liquidity or unverified contract is skipped or reported as an error. The scanner operates on the discovered **base token contract**, not automatically on the project's vault or DEX pool.
 
 
-## Separate DeFi protocol discovery lane
+## Frontier discovery: freshness-first sources
 
-The original **discover** command finds new GeckoTerminal pools and scans their base-token contracts. To prioritize contracts that may handle deposits, lending, staking, vaults, or liquidity, use a separate protocol lane:
+The old DeFiLlama TVL-ranked discovery command has been removed. Use independent source and deployment signals instead:
 
-~~~bash
-python hunter.py discover-protocols --network bsc --min-tvl 1000000 --protocol-limit 30 --limit 40 --out protocol-discovery.json
-python hunter.py scan --input protocol-discovery.json --min-liquidity 1000000 --limit 10 --out protocol-report.json
-~~~
+1. **Newly verified contracts:** `python frontier.py verified --network bsc --limit 100 --out verified-discovery.json`
+2. **New or recently changed source repositories:** `python frontier.py github --days 7 --limit 30 --out github-discovery.json`
+3. **Static triage for GitHub source:** `python frontier.py scan-github --input github-discovery.json --limit 15 --out github-report.json`
+4. **Current bounty and audit leads:** `python frontier.py audits --out audit-pipelines.json`
+5. **Recently mined direct deployments:** `python frontier.py deployments --network bsc --blocks 20 --limit 100 --out deployment-discovery.json`
+6. **Provider-visible pending creations:** `python frontier.py mempool --network bsc --seconds 60 --limit 1000 --out pending-creations.json`
 
-**discover-protocols** filters the public [DeFiLlama protocols API](https://api.llama.fi/protocols) by chain, category and TVL, then inspects the corresponding public DeFiLlama adapter source for chain-scoped address literals. It records the adapter path, line, nearby role label, and confidence so candidates can be traced back to their evidence. This is a heuristic source of leads—not an authoritative contract registry. Some adapter addresses may be tokens, data providers, or other supporting contracts rather than the protocol's primary asset manager. The scan therefore still requires verified Solidity source from Etherscan/Sourcify and runs static analysis on that source.
+The existing GeckoTerminal `discover` workflow remains available for new DEX pools. For deployment commands, configure a read-only HTTP or WebSocket RPC URL in your local runtime. Never commit RPC credentials.
 
-Start with a small protocol limit and address limit. Protocol discovery can make public API requests for multiple metadata records and source files, so don't set the limits unnecessarily high. Candidate TVL is used as a ranking/filtering estimate, not as proof that a particular address holds that TVL. GoPlus token-security lookups and creator/factory tracing are skipped for these protocol-contract candidates because those steps are designed for token screening. The report marks the candidate as a protocol contract and retains the candidate role/evidence.
+GitHub source search records repository creation and push times. The scanner skips test/fixture/deployment-script paths, hashes source files to flag identical code copied into different repositories, and avoids repeating DeepSeek reviews for exact duplicate repositories. Static pattern matches remain triage hints, not vulnerability findings.
 
-To use DeepSeek only after Slither/source screening:
+The audit output keeps current/upcoming opportunities separate from unverified project directories and ended contests. Immunefi records include recent smart-contract scope additions where the public feed exposes them. Confirm scope, timing, eligibility and rules on the official platform before conducting research.
 
-~~~bash
-python hunter.py scan --input protocol-discovery.json --min-liquidity 1000000 --limit 10 --min-score 30 --ai --out protocol-report.json
-~~~
-
-The existing GeckoTerminal workflow is unchanged. Both lanes remain passive source analysis: no transactions are sent and no live-contract exploit attempts are performed.
+These feeds are incomplete by design: Sourcify verification time is not necessarily deployment time; block scans miss internal factory CREATE/CREATE2 events; and a WebSocket provider does not expose a global mempool. The scanner performs passive source analysis and read-only data collection only.
 
 ## Step 3: Optional DeepSeek review
 
