@@ -96,58 +96,84 @@ def sourcify_source(network, address):
 
 def creation_context(network, address, window_days=14, max_related=20):
     """
-    Passive explorer lookup for a contract's creator and nearby contracts created
-    by the same address. Same-creator linkage is only a lead, not proof of a
-    shared protocol or ownership relationship.
+    Passive explorer lookup for the contract creator and nearby deployments.
+    Shared deployer/time is a lead only, not proof of a common protocol.
     """
     key = os.getenv("ETHERSCAN_API_KEY")
     if not key:
         return {"status": "skipped", "reason": "ETHERSCAN_API_KEY not configured"}
 
-    def endpoint(params):
-        request = {
-            "chainid": CHAIN_IDS[network],
-            "apikey": key,
-            **params,
-        }
+    def endpoint(params, expect_list=True):
+        request = {"chainid": CHAIN_IDS[network], "apikey": key, **params}
         payload = get_json(ETHERSCAN, request)
         time.sleep(0.36)
-        if str(payload.get("status")) != "1" or not isinstance(payload.get("result"), list):
-            return []
-        return payload["result"]
+        status = str(payload.get("status"))
+        result = payload.get("result")
+        if status == "1" and (not expect_list or isinstance(result, list)):
+            return result, None
+        detail = f"status={status}; message={payload.get('message')}; result={str(result)[:350]}"
+        if isinstance(result, str) and "no transactions found" in result.lower():
+            return [], None
+        return None, detail
 
     try:
-        created = endpoint({
+        created, error = endpoint({
             "module": "contract", "action": "getcontractcreation",
             "contractaddresses": address,
         })
+        if error:
+            return {
+                "status": "unavailable",
+                "reason": "getcontractcreation request failed: " + error,
+            }
         if not created:
-            return {"status": "unavailable", "reason": "Explorer did not return creator metadata"}
+            return {"status": "unavailable", "reason": "Explorer returned no creation record"}
         first = created[0]
         creator = first.get("contractCreator") or first.get("contractcreator")
         creation_hash = first.get("txHash") or first.get("txhash")
+        timestamp_raw = first.get("timestamp") or first.get("timeStamp")
+        try:
+            target_time = int(timestamp_raw or 0)
+        except (TypeError, ValueError):
+            target_time = 0
+        block_number = first.get("blockNumber") or first.get("blocknumber")
+        factory = first.get("contractFactory") or first.get("contractfactory")
         context = {
             "status": "ok",
             "creator": creator,
             "creation_tx": creation_hash,
+            "creation_timestamp": target_time or None,
+            "creation_block": block_number,
+            "contract_factory": factory if factory and factory != "0x0000000000000000000000000000000000000000" else None,
             "related_deployments": [],
             "note": "Same-creator deployments are leads only; verify source and actual protocol relationship.",
         }
         if not creator or not ADDRESS.fullmatch(creator):
             context["status"] = "partial"
-            context["reason"] = "Creator address unavailable"
+            context["reason"] = "Creator address unavailable in explorer response"
+            return context
+        if not target_time:
+            context["status"] = "partial"
+            context["reason"] = "Explorer did not return a creation timestamp; related deployment matching skipped"
             return context
 
-        direct = endpoint({
+        direct, direct_error = endpoint({
             "module": "account", "action": "txlist", "address": creator,
             "startblock": 0, "endblock": 99999999, "page": 1,
-            "offset": 100, "sort": "desc",
+            "offset": 1000, "sort": "desc",
         })
-        internal = endpoint({
+        internal, internal_error = endpoint({
             "module": "account", "action": "txlistinternal", "address": creator,
             "startblock": 0, "endblock": 99999999, "page": 1,
-            "offset": 100, "sort": "desc",
+            "offset": 1000, "sort": "desc",
         })
+        direct = direct or []
+        internal = internal or []
+        if direct_error:
+            context["transaction_lookup_warning"] = "txlist: " + direct_error
+        if internal_error:
+            old = context.get("transaction_lookup_warning", "")
+            context["transaction_lookup_warning"] = (old + " | " if old else "") + "txlistinternal: " + internal_error
 
         rows = []
         for tx in direct:
@@ -170,22 +196,10 @@ def creation_context(network, address, window_days=14, max_related=20):
                     "creation_type": tx_type,
                 })
 
-        target_time = 0
-        target_hash = (creation_hash or "").lower()
-        for tx in direct + internal:
-            if (tx.get("hash") or "").lower() == target_hash:
-                try:
-                    target_time = int(tx.get("timeStamp") or 0)
-                except (TypeError, ValueError):
-                    target_time = 0
-                if target_time:
-                    break
-        # Don't infer a time window from "now": only compare when the target
-        # creation transaction was found in indexed creator history.
         unique = {}
         window_seconds = window_days * 24 * 60 * 60
         for row in rows:
-            if not row["timestamp"] or not target_time:
+            if not row["timestamp"]:
                 continue
             if abs(row["timestamp"] - target_time) > window_seconds:
                 continue
@@ -196,8 +210,8 @@ def creation_context(network, address, window_days=14, max_related=20):
             unique.values(),
             key=lambda row: abs(row["timestamp"] - target_time)
         )[:max_related]
-        if not target_time:
-            context["reason"] = "Creator history did not contain the target creation transaction; nearby deployment matching skipped"
+        if not context["related_deployments"] and not context.get("transaction_lookup_warning"):
+            context["reason"] = "Creator metadata found, but no other direct/internal deployments were found in the selected time window"
         return context
     except (requests.RequestException, ValueError, TypeError, KeyError, RuntimeError) as exc:
         return {"status": "error", "reason": str(exc)[:700]}
