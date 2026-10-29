@@ -79,6 +79,15 @@ class FrontierTriageTests(unittest.TestCase):
         status, _, _ = _immunefi_status(row, datetime(2026, 10, 29, tzinfo=timezone.utc))
         self.assertEqual(status, "ended")
 
+    def test_immunefi_paused_program_is_not_active(self):
+        row = {
+            "launchDate": "2026-01-01T00:00:00Z",
+            "endDate": None,
+            "isPaused": True,
+        }
+        status, _, _ = _immunefi_status(row, datetime(2026, 10, 29, tzinfo=timezone.utc))
+        self.assertEqual(status, "paused")
+
 
 class HunterRankingTests(unittest.TestCase):
     def test_openzeppelin_muldiv_xor_false_positive_is_not_scored(self):
