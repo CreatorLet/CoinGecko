@@ -18,7 +18,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Install `solc` (matching the target source's Solidity version). Slither must be on PATH; try `slither --version`. Put your `ETHERSCAN_API_KEY` in `.env`. Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. Don't commit `.env`.
+Install `solc-select` (`pip install solc-select`). The scanner selects the compiler version reported by Etherscan and installs it if needed. Slither must be on PATH; check with `slither --version`. Put your `ETHERSCAN_API_KEY` in `.env`. Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. Don't commit `.env`.
 
 ## Step 1: Discover
 
@@ -52,3 +52,14 @@ python hunter.py scan --input result.txt --min-liquidity 10000 --min-score 30 --
 - GeckoTerminal's reported reserves can be volatile or manipulated, so liquidity is only a first-pass screening metric.
 - The tool doesn't assert Immunefi eligibility or authorization. Use passive analysis of publicly available code only; follow each program's rules before further testing or disclosure.
 - No Foundry or on-chain interactions are used.
+
+## Colab: rerun after compiler fix
+
+```python
+%cd /content/CoinGecko
+!git pull origin main
+!pip install -q solc-select
+!python hunter.py scan --input discovery.json --min-liquidity 10000 --limit 5 --out report.json
+```
+
+No DeepSeek credits are used without `--ai`. A previous zero severity score means the scanner did not surface scored findings, not that the contract is proved safe.
