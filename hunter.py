@@ -144,7 +144,12 @@ def goplus_access_token():
     token = token or (payload.get("access_token") if isinstance(payload, dict) else None)
     if not token:
         msg = payload.get("message", "No access_token in response") if isinstance(payload, dict) else "Invalid response"
-        raise RuntimeError(f"GoPlus access-token request returned no token: {str(msg)[:500]}")
+        code = payload.get("code", "unknown") if isinstance(payload, dict) else "unknown"
+        raise RuntimeError(
+            f"GoPlus access-token request rejected (code={code}; message={str(msg)[:400]}). "
+            "For code 4012, confirm the app key and app secret are the matching pair from the same GoPlus app, "
+            "and retry with a fresh timestamp."
+        )
 
     # Most GoPlus access tokens are long-lived, but cache conservatively for
     # 20 minutes to avoid requesting a token for every token contract scanned.
