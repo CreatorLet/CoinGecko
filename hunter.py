@@ -515,10 +515,13 @@ def main():
     print(f"Wrote {len(result)} records to {args.out}")
     if args.command == "scan":
         for row in result:
+            context = row.get("creation_context") or {}
+            related = context.get("related_deployments") or []
             print(row["network"], row["address"], row["status"],
                   f"slither={row.get('score', '-')}",
                   f"signals={row.get('source_signal_score', '-')}",
                   f"review={row.get('review_score', '-')}",
+                  f"related_deployments={len(related)}",
                   row.get("error", row.get("deepseek_skipped_reason", "")))
 
 
