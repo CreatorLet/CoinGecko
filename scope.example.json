@@ -1,0 +1,10 @@
+{
+  "targets": [
+    {
+      "network": "eth",
+      "address": "0x0000000000000000000000000000000000000001",
+      "program": "REPLACE_WITH_IMMUNEFI_PROGRAM_URL",
+      "authorized": false
+    }
+  ]
+}
