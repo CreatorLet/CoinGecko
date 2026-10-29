@@ -1,15 +1,19 @@
-name: Python syntax check
+name: Python syntax and triage checks
 on:
   push:
     branches: [main]
   pull_request:
 jobs:
-  compile:
+  compile-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Compile discovery and scanner
+      - name: Install lightweight test dependencies
+        run: python -m pip install requests python-dotenv
+      - name: Compile scanner modules
         run: python -m py_compile hunter.py frontier.py
+      - name: Run triage regression tests
+        run: python -m unittest discover -s tests -v
