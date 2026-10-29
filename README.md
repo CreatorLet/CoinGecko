@@ -52,6 +52,14 @@ The existing GeckoTerminal `discover` workflow remains available for new DEX poo
 
 GitHub source search records repository creation and push times. The scanner skips test/fixture/deployment-script and known vendored-library paths, hashes source files to flag identical code copied into different repositories, and avoids repeating DeepSeek reviews for exact duplicate repositories. The GitHub report separately records asset-handling surface markers (token transfers, financial entry points, balance/liability accounting, and protocol calls); these are for manual-review prioritization only and do not raise the vulnerability score by themselves. Static pattern matches remain triage hints, not vulnerability findings.
 
+When you want DeepSeek to inspect asset-bearing logic that has few syntax-based warnings (for example, a paywall or accounting-heavy vault), opt in explicitly and keep the limit small:
+
+~~~bash
+python frontier.py scan-github --input github-discovery.json --limit 5 --min-score 20 --ai --ai-fund-handling --out github-report-ai.json
+~~~
+
+This flag requires `DEEPSEEK_API_KEY` and can consume credits. It expands AI review to candidates whose source shows both a financial entry point and asset-flow surface, even if the heuristic warning score is low. It does **not** label those candidates vulnerable.
+
 The audit output keeps current/upcoming opportunities separate from unverified project directories and ended contests. Immunefi records include recent smart-contract scope additions where the public feed exposes them. Confirm scope, timing, eligibility and rules on the official platform before conducting research.
 
 These feeds are incomplete by design: Sourcify verification time is not necessarily deployment time; block scans miss internal factory CREATE/CREATE2 events; and a WebSocket provider does not expose a global mempool. The scanner performs passive source analysis and read-only data collection only.
