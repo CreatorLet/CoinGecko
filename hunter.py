@@ -123,7 +123,7 @@ def write_sources(entry, root):
 def select_compiler(entry):
     """Select explorer-reported Solidity compiler using solc-select, if available."""
     version_text = entry.get("CompilerVersion") or ""
-    match = re.search(r"v?(\\d+\\.\\d+\\.\\d+)", version_text)
+    match = re.search(r"v?(\d+\.\d+\.\d+)", version_text)
     if not match:
         return None
     version = match.group(1)
@@ -158,7 +158,7 @@ def slither_scan(root, paths):
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError("Slither timed out after 180 seconds") from exc
     if not output.exists():
-        details = (done.stderr or "") + "\\n" + (done.stdout or "")
+        details = (done.stderr or "") + "\n" + (done.stdout or "")
         interesting = [line.strip() for line in details.splitlines() if any(k in line.lower() for k in ("error:", "parsererror", "typeerror", "pragma", "compiler version", "not found", "failed", "unrecognized"))]
         summary = " | ".join(interesting[-8:]) or details[-1000:]
         raise RuntimeError(f"Slither compilation failed (exit {done.returncode}): {summary[:1400]}")
