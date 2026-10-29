@@ -1019,7 +1019,7 @@ def main():
     d.add_argument("--limit", type=int, default=20)
     d.add_argument("--out", default="discovery.json")
     s = sub.add_parser("scan", help="Static scan discovered verified token sources; no live-network testing")
-    s.add_argument("--input", default="result.txt", help="JSON discovery output, e.g. result.txt or discovery.json")
+    s.add_argument("--input", default="discovery.json", help="JSON discovery output from the discover command")
     s.add_argument("--min-liquidity", type=float, default=10000, help="Minimum reported pool reserve USD")
     s.add_argument("--min-volume", type=float, default=0, help="Minimum reported 24h volume USD")
     s.add_argument("--limit", type=int, default=10)
