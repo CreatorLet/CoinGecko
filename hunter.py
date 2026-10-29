@@ -298,17 +298,45 @@ def nodereal_rpc(network, method, params):
         raise RuntimeError(f"NodeReal creation lookup is unsupported for network={network}")
     api_key = (os.getenv("NODEREAL_API_KEY") or "").strip() or NODEREAL_PUBLIC_KEYS[network]
     url = f"https://{endpoint_chain}.nodereal.io/v1/{api_key}"
-    try:
-        response = requests.post(
-            url,
-            headers={"content-type": "application/json", "accept": "application/json"},
-            json={"jsonrpc": "2.0", "method": method, "params": params, "id": 1},
-            timeout=30,
-        )
-        response.raise_for_status()
-        payload = response.json()
-    except (requests.RequestException, ValueError) as exc:
-        raise RuntimeError(f"NodeReal {method} request failed: {str(exc)[:500]}") from exc
+    payload = None
+    last_error = None
+    for attempt in range(4):
+        try:
+            response = requests.post(
+                url,
+                headers={"content-type": "application/json", "accept": "application/json"},
+                json={"jsonrpc": "2.0", "method": method, "params": params, "id": 1},
+                timeout=30,
+            )
+            if response.status_code == 429 or response.status_code >= 500:
+                retry_after = response.headers.get("Retry-After", "")
+                try:
+                    delay = min(20, max(1, float(retry_after))) if retry_after else (2 ** attempt)
+                except ValueError:
+                    delay = 2 ** attempt
+                last_error = f"HTTP {response.status_code}: {response.text[:350]}"
+                if attempt < 3:
+                    time.sleep(delay)
+                    continue
+                break
+            response.raise_for_status()
+            payload = response.json()
+            break
+        except (requests.RequestException, ValueError) as exc:
+            last_error = str(exc)[:500]
+            if attempt < 3:
+                time.sleep(2 ** attempt)
+            else:
+                break
+    if payload is None:
+        if "429" in str(last_error):
+            raise RuntimeError(
+                f"NodeReal {method} is rate-limited (HTTP 429) after retries. "
+                "The shared public key is quota-limited; set your own NODEREAL_API_KEY "
+                "in the Colab environment and retry. "
+                f"Details: {str(last_error)[:350]}"
+            )
+        raise RuntimeError(f"NodeReal {method} request failed after retries: {str(last_error)[:500]}")
     if isinstance(payload, dict) and payload.get("error"):
         error = payload["error"]
         raise RuntimeError(f"NodeReal {method} returned RPC error: {str(error)[:500]}")
