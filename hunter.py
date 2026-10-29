@@ -907,6 +907,61 @@ def deepseek_review(target, findings, sources, risk_signals=None, max_chars=3000
             "usage": result.get("usage")}
 
 
+def scan_related_contract(network, address, relationship, ai=False, min_score=30):
+    """One-hop static review for a strongly suggested factory candidate; no recursive chasing."""
+    result = {
+        "network": network,
+        "address": address,
+        "relationship": relationship,
+        "status": "pending",
+    }
+    try:
+        source = verified_source(network, address)
+        result["contract_name"] = source.get("ContractName")
+        result["source_provider"] = source.get("_source_provider", "Etherscan")
+        if source.get("Proxy") == "1":
+            result["status"] = "skipped_low_transparency"
+            result["reason"] = "Candidate is a proxy; implementation analysis is not part of this bounded pass."
+            return result
+        result["compiler_version"] = select_compiler(source)
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            paths = write_sources(source, root)
+            detectors = slither_scan(root, paths)
+            slither_score, findings = rank(detectors)
+            signal_score, signals = source_risk_signals(root, paths)
+            review_score = min(100, slither_score + signal_score)
+            result.update({
+                "slither_score": slither_score,
+                "findings": findings,
+                "source_signal_score": signal_score,
+                "source_risk_signals": signals,
+                "review_score": review_score,
+                "status": "screened",
+            })
+            if ai and review_score >= min_score:
+                result["deepseek"] = deepseek_review(
+                    {"network": network, "address": address,
+                     "relationship": relationship, "review_score": review_score},
+                    findings, [root / path for path in paths], risk_signals=signals)
+                result["status"] = "reviewed"
+            elif ai:
+                result["deepseek_skipped_reason"] = (
+                    f"Candidate source score {review_score} is below --min-score {min_score}."
+                )
+    except RuntimeError as exc:
+        if "No verified source found." in str(exc):
+            result["status"] = "skipped_low_transparency"
+            result["reason"] = "No verified source found for this linked candidate; stopped rather than chasing opaque code."
+        else:
+            result["status"] = "error"
+            result["reason"] = str(exc)[:1200]
+    except (requests.RequestException, KeyError, ValueError, OSError) as exc:
+        result["status"] = "error"
+        result["reason"] = str(exc)[:1200]
+    return result
+
+
 def scan_target(entry, ai=False, min_score=30):
     net, address = entry["network"], entry["address"]
     result = {"network": net, "address": address, "pool": entry.get("pool"),
@@ -933,6 +988,21 @@ def scan_target(entry, ai=False, min_score=30):
             transparency_flags.append("GoPlus did not provide a creator address.")
         result["transparency_flags"] = transparency_flags
         result["creation_context"] = creation_context(net, address, goplus_data=goplus_data)
+
+        # Only follow a factory/launchpad candidate when the creator made at
+        # least one other nearby call to the same destination. One hop only.
+        # No repeated chasing of opaque contracts or weak linkage.
+        context = result["creation_context"] or {}
+        factory = context.get("factory_candidate")
+        repeated_calls = context.get("same_destination_calls") or []
+        result["related_contract_reviews"] = []
+        if factory and repeated_calls:
+            result["related_contract_reviews"].append(
+                scan_related_contract(
+                    net, factory, "factory_candidate_with_repeat_creator_call",
+                    ai=ai, min_score=min_score,
+                )
+            )
 
         try:
             source = verified_source(net, address)
