@@ -142,3 +142,6 @@ os.environ['NODEREAL_API_KEY'] = getpass.getpass('NodeReal API key: ')
 ```
 
 Then rerun the scan. The code never writes keys into reports. NodeReal documents contract-creation and enhanced transaction methods for BSC and Ethereum mainnet.
+
+
+The NodeReal creation context also records the creation transaction's `to` field, whether that transaction appeared in the sender history, a possible factory/launchpad destination, and up to 10 nearby transactions from the same creator to that same destination. These are diagnostic leads. A destination address is not conclusively a factory until its code/verified ABI is reviewed.
