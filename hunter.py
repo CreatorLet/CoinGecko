@@ -120,6 +120,33 @@ def write_sources(entry, root):
     return paths
 
 
+def select_compiler(entry):
+    """Select explorer-reported Solidity compiler using solc-select, if available."""
+    version_text = entry.get("CompilerVersion") or ""
+    match = re.search(r"v?(\\d+\\.\\d+\\.\\d+)", version_text)
+    if not match:
+        return None
+    version = match.group(1)
+    try:
+        installed = subprocess.run(["solc-select", "versions"], capture_output=True, text=True, timeout=15)
+    except FileNotFoundError as exc:
+        raise RuntimeError("Install solc-select to support multiple Solidity versions") from exc
+    if installed.returncode != 0:
+        raise RuntimeError("solc-select versions failed: " + installed.stderr.strip()[-500:])
+    if version not in installed.stdout:
+        install = subprocess.run(["solc-select", "install", version],
+                                 capture_output=True, text=True, timeout=150)
+        if install.returncode != 0:
+            raise RuntimeError("Compiler " + version + " installation failed: " +
+                               (install.stderr or install.stdout).strip()[-700:])
+    selected = subprocess.run(["solc-select", "use", version],
+                              capture_output=True, text=True, timeout=20)
+    if selected.returncode != 0:
+        raise RuntimeError("Compiler selection failed: " +
+                           (selected.stderr or selected.stdout).strip()[-700:])
+    return version
+
+
 def slither_scan(root, paths):
     """Run static analysis only; use local solc/slither installation."""
     output = root / "slither.json"
@@ -131,7 +158,10 @@ def slither_scan(root, paths):
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError("Slither timed out after 180 seconds") from exc
     if not output.exists():
-        raise RuntimeError(f"Slither failed: {(done.stderr or done.stdout)[-1200:]}")
+        details = (done.stderr or "") + "\\n" + (done.stdout or "")
+        interesting = [line.strip() for line in details.splitlines() if any(k in line.lower() for k in ("error:", "parsererror", "typeerror", "pragma", "compiler version", "not found", "failed", "unrecognized"))]
+        summary = " | ".join(interesting[-8:]) or details[-1000:]
+        raise RuntimeError(f"Slither compilation failed (exit {done.returncode}): {summary[:1400]}")
     report = json.loads(output.read_text(encoding="utf-8"))
     if report.get("success") is False:
         raise RuntimeError(f"Slither failed: {str(report.get('error', 'unknown'))[:500]}")
@@ -195,6 +225,7 @@ def scan_target(entry, ai=False, min_score=30):
             result["note"] = "Proxy detected: implementation analysis is not supported in this version."
             result["status"] = "proxy_requires_review"
             return result
+        result["compiler_version"] = select_compiler(source)
         with tempfile.TemporaryDirectory() as dirname:
             root = Path(dirname)
             paths = write_sources(source, root)
@@ -208,7 +239,7 @@ def scan_target(entry, ai=False, min_score=30):
                 result["status"] = "reviewed"
     except (RuntimeError, requests.RequestException, KeyError, ValueError, OSError) as exc:
         result["status"] = "error"
-        result["error"] = str(exc)[:600]
+        result["error"] = str(exc)[:1600]
     return result
 
 
