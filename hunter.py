@@ -283,6 +283,8 @@ def goplus_risk_signals(data):
     return min(100, sum(s["weight"] for s in signals)), signals
 
 
+_NODEREAL_DISABLED_REASON = None
+
 NODEREAL_PUBLIC_KEYS = {
     # Public/shareable starter keys documented by NodeReal. Override with your
     # own key in NODEREAL_API_KEY for higher quotas/reliability.
@@ -292,12 +294,19 @@ NODEREAL_PUBLIC_KEYS = {
 
 
 def nodereal_rpc(network, method, params):
-    """Call NodeReal's documented JSON-RPC/Enhanced API endpoint."""
+    """Optional NodeReal call with retries, key redaction, and per-run circuit breaker."""
+    global _NODEREAL_DISABLED_REASON
     endpoint_chain = {"bsc": "bsc-mainnet", "eth": "eth-mainnet"}.get(network)
     if not endpoint_chain:
         raise RuntimeError(f"NodeReal creation lookup is unsupported for network={network}")
+    enabled = os.getenv("ENABLE_NODEREAL", "1").strip().lower() not in ("0", "false", "no", "off")
+    if not enabled:
+        raise RuntimeError("NodeReal is disabled by ENABLE_NODEREAL")
+    if _NODEREAL_DISABLED_REASON:
+        raise RuntimeError("NodeReal disabled for this run after an earlier quota/auth error: " + _NODEREAL_DISABLED_REASON)
     api_key = (os.getenv("NODEREAL_API_KEY") or "").strip() or NODEREAL_PUBLIC_KEYS[network]
     url = f"https://{endpoint_chain}.nodereal.io/v1/{api_key}"
+    safe_url = f"https://{endpoint_chain}.nodereal.io/v1/<redacted>"
     payload = None
     last_error = None
     for attempt in range(4):
@@ -308,41 +317,45 @@ def nodereal_rpc(network, method, params):
                 json={"jsonrpc": "2.0", "method": method, "params": params, "id": 1},
                 timeout=30,
             )
-            if response.status_code == 429 or response.status_code >= 500:
+            status = response.status_code
+            if status in (401, 402, 403):
+                _NODEREAL_DISABLED_REASON = f"HTTP {status} access/credit error"
+                last_error = f"HTTP {status}: {response.text[:300]}"
+                break
+            if status == 429 or status >= 500:
                 retry_after = response.headers.get("Retry-After", "")
                 try:
                     delay = min(20, max(1, float(retry_after))) if retry_after else (2 ** attempt)
                 except ValueError:
                     delay = 2 ** attempt
-                last_error = f"HTTP {response.status_code}: {response.text[:350]}"
+                last_error = f"HTTP {status}: {response.text[:300]}"
                 if attempt < 3:
                     time.sleep(delay)
                     continue
+                if status == 429:
+                    _NODEREAL_DISABLED_REASON = "HTTP 429 rate limit after retries"
                 break
             response.raise_for_status()
             payload = response.json()
             break
         except (requests.RequestException, ValueError) as exc:
-            last_error = str(exc)[:500]
+            last_error = str(exc).replace(url, safe_url)[:500]
             if attempt < 3:
                 time.sleep(2 ** attempt)
             else:
                 break
     if payload is None:
-        if "429" in str(last_error):
+        if _NODEREAL_DISABLED_REASON:
             raise RuntimeError(
-                f"NodeReal {method} is rate-limited (HTTP 429) after retries. "
-                "The shared public key is quota-limited; set your own NODEREAL_API_KEY "
-                "in the Colab environment and retry. "
-                f"Details: {str(last_error)[:350]}"
+                f"NodeReal {method} unavailable: {_NODEREAL_DISABLED_REASON}. "
+                "The scanner will fall back to other providers; configure NODEREAL_API_KEY "
+                "or set ENABLE_NODEREAL=0 to skip NodeReal."
             )
-        raise RuntimeError(f"NodeReal {method} request failed after retries: {str(last_error)[:500]}")
+        raise RuntimeError(f"NodeReal {method} request failed after retries at {safe_url}: {str(last_error)[:500]}")
     if isinstance(payload, dict) and payload.get("error"):
         error = payload["error"]
         raise RuntimeError(f"NodeReal {method} returned RPC error: {str(error)[:500]}")
     result = payload.get("result") if isinstance(payload, dict) else None
-    # Enhanced API methods wrap their payload one extra level; standard eth_*
-    # methods generally return the raw result.
     if isinstance(result, dict) and "result" in result:
         result = result.get("result")
     if result is None:
