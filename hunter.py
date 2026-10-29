@@ -68,23 +68,6 @@ def discover(network, pages=1, limit=20):
     return pools
 
 
-def allowed_targets(path):
-    """Explicit address-level permission and bounty scope; no automatic authorization."""
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    entries = payload.get("targets", [])
-    if not isinstance(entries, list):
-        raise ValueError("scope.targets must be an array")
-    result = {}
-    for entry in entries:
-        net, address = entry["network"], entry["address"]
-        if net not in CHAIN_IDS or not ADDRESS.fullmatch(address):
-            raise ValueError(f"Invalid target: {net} {address}")
-        if not entry.get("authorized", False):
-            continue
-        result[(net, address.lower())] = entry
-    return result
-
-
 def verified_source(network, address):
     key = os.getenv("ETHERSCAN_API_KEY")
     if not key:
