@@ -562,15 +562,29 @@ def scan_target(entry, ai=False, min_score=30):
     result = {"network": net, "address": address, "pool": entry.get("pool"),
               "name": entry.get("name"), "reserve_usd": entry.get("reserve_usd"), "status": "pending"}
     try:
+        # External token-risk metadata complements static analysis; API failure
+        # is recorded but does not stop the source/Slither pipeline.
+        goplus_result = goplus_token_security(net, address)
+        goplus_data = goplus_result.get("data") or {}
+        goplus_score, goplus_signals = goplus_risk_signals(goplus_data)
+        result["goplus_security"] = {
+            "status": goplus_result.get("status"),
+            "reason": goplus_result.get("reason"),
+            "data": goplus_data,
+        }
+        result["goplus_risk_score"] = goplus_score
+        result["goplus_risk_signals"] = goplus_signals
+        result["creation_context"] = creation_context(net, address, goplus_data=goplus_data)
+
         source = verified_source(net, address)
         result["contract_name"] = source.get("ContractName")
         result["source_provider"] = source.get("_source_provider", "Etherscan")
-        result["creation_context"] = creation_context(net, address)
         if source.get("Proxy") == "1":
             result["proxy_implementation"] = source.get("Implementation")
             result["note"] = "Proxy detected: implementation analysis is not supported in this version."
             result["status"] = "proxy_requires_review"
             return result
+
         result["compiler_version"] = select_compiler(source)
         with tempfile.TemporaryDirectory() as dirname:
             root = Path(dirname)
@@ -578,12 +592,15 @@ def scan_target(entry, ai=False, min_score=30):
             detectors = slither_scan(root, paths)
             score, findings = rank(detectors)
             signal_score, signals = source_risk_signals(root, paths)
-            review_score = min(100, score + signal_score)
+            combined_signals = signals + goplus_signals
+            review_score = min(100, score + signal_score + goplus_score)
             result.update({
                 "score": score,
                 "findings": findings,
                 "source_signal_score": signal_score,
                 "source_risk_signals": signals,
+                "goplus_risk_score": goplus_score,
+                "goplus_risk_signals": goplus_signals,
                 "review_score": review_score,
                 "status": "screened",
             })
@@ -591,8 +608,9 @@ def scan_target(entry, ai=False, min_score=30):
                 result["deepseek"] = deepseek_review(
                     {"network": net, "address": address, "name": entry.get("name"),
                      "slither_score": score, "source_signal_score": signal_score,
+                     "goplus_risk_score": goplus_score,
                      "review_score": review_score},
-                    findings, [root / p for p in paths], risk_signals=signals)
+                    findings, [root / p for p in paths], risk_signals=combined_signals)
                 result["status"] = "reviewed"
             elif ai:
                 result["deepseek_skipped_reason"] = (
@@ -664,7 +682,8 @@ def main():
             related = context.get("related_deployments") or []
             print(row["network"], row["address"], row["status"],
                   f"slither={row.get('score', '-')}",
-                  f"signals={row.get('source_signal_score', '-')}",
+                  f"source_signals={row.get('source_signal_score', '-')}",
+                  f"goplus={row.get('goplus_risk_score', '-')}",
                   f"review={row.get('review_score', '-')}",
                   f"related_deployments={len(related)}",
                   row.get("error", row.get("deepseek_skipped_reason", "")))
