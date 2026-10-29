@@ -405,7 +405,11 @@ def main():
     print(f"Wrote {len(result)} records to {args.out}")
     if args.command == "scan":
         for row in result:
-            print(row["network"], row["address"], row["status"], row.get("score", "-"), row.get("error", ""))
+            print(row["network"], row["address"], row["status"],
+                  f"slither={row.get('score', '-')}",
+                  f"signals={row.get('source_signal_score', '-')}",
+                  f"review={row.get('review_score', '-')}",
+                  row.get("error", row.get("deepseek_skipped_reason", "")))
 
 
 if __name__ == "__main__":
