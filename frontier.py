@@ -50,7 +50,9 @@ GITHUB_LANGUAGE_FILTERS = ("Solidity", "Vyper", "Rust")
 GITHUB_SKIP_PARTS = {
     "node_modules", "vendor", "vendors", "lib", "libs", "target", "build",
     "artifacts", "cache", "dist", ".git", "third_party", "third-party",
-    "dependencies", "deps",
+    "dependencies", "deps", "test", "tests", "script", "scripts", "fixture",
+    "fixtures", "mock", "mocks", "example", "examples", "docs", "doc",
+    "migration", "migrations", "generated", "gen", "benchmark", "benchmarks",
 }
 ADDRESS = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
@@ -88,6 +90,19 @@ def write_json(path, data):
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2, ensure_ascii=False)
     print(f"Wrote {len(data)} records to {path}")
+
+
+
+def _parse_datetime(value):
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def discover_verified(network="eth", limit=100):
@@ -163,16 +178,27 @@ def _candidate_contract_paths(tree):
         if item.get("type") != "blob":
             continue
         path = item.get("path", "")
-        parts = PurePosixPath(path).parts
-        if not path or any(part.lower() in GITHUB_SKIP_PARTS for part in parts):
+        if not path:
             continue
+        parts = PurePosixPath(path).parts
+        lower_parts = tuple(part.lower() for part in parts)
         lower = path.lower()
-        if lower.endswith((".sol", ".vy", ".rs")) or PurePosixPath(path).name.lower() in ("anchor.toml", "cargo.toml"):
-            all_paths.add(path)
+        basename = PurePosixPath(path).name.lower()
+        is_contract_source = lower.endswith((".sol", ".vy", ".rs"))
+        is_manifest = basename in ("anchor.toml", "cargo.toml")
+        if not (is_contract_source or is_manifest):
+            continue
+        # Test fixtures and deployment scripts are useful for context but are a
+        # noisy primary target for source-first vulnerability triage.
+        if any(part in GITHUB_SKIP_PARTS for part in lower_parts):
+            continue
+        if basename.endswith((".t.sol", ".test.sol", "_test.sol")) or basename.startswith(("test_", "mock_")):
+            continue
+        all_paths.add(path)
     has_anchor = any(PurePosixPath(p).name.lower() == "anchor.toml" for p in all_paths)
     has_cargo = any(PurePosixPath(p).name.lower() == "cargo.toml" for p in all_paths)
     results = []
-    for path in sorted(all_paths):
+    for path in all_paths:
         lower = path.lower()
         if lower.endswith(".sol"):
             language = "Solidity"
@@ -180,7 +206,7 @@ def _candidate_contract_paths(tree):
             language = "Vyper"
         elif lower.endswith(".rs"):
             rust_contract_markers = (
-                "anchor.toml", "programs/", "/programs/", "contracts/", "/contracts/",
+                "programs/", "/programs/", "contracts/", "/contracts/",
                 "ink/", "/ink/", "near", "soroban", "stylus",
             )
             if not (has_anchor or any(marker in lower for marker in rust_contract_markers)):
@@ -188,7 +214,12 @@ def _candidate_contract_paths(tree):
             language = "Rust"
         else:
             continue
-        results.append({"path": path, "language": language})
+        parts = tuple(part.lower() for part in PurePosixPath(path).parts)
+        priority = 0 if any(part in ("src", "contracts", "programs", "program") for part in parts) else 1
+        results.append({"path": path, "language": language, "path_priority": priority})
+    results.sort(key=lambda row: (row["path_priority"], row["path"]))
+    for row in results:
+        row.pop("path_priority", None)
     return results, has_anchor, has_cargo
 
 
@@ -519,13 +550,37 @@ RUST_PATTERNS = (
 def analyze_source(language, source, path):
     patterns = SOLIDITY_PATTERNS if language == "Solidity" else VYPER_PATTERNS if language == "Vyper" else RUST_PATTERNS
     found = []
+    safe_token_helpers = {
+        "_calloptionalreturn", "_calloptionalreturnbool", "safesend",
+        "safeapprovexact", "safetransfer", "safetransferfrom",
+    }
     for name, pattern, weight, explanation in patterns:
         hits = list(pattern.finditer(source))
+        if name == "low-level-call":
+            # A guarded ERC-20 optional-return helper is not, by itself, a
+            # meaningful source-risk cue. Keep other low-level calls for review.
+            filtered = []
+            for hit in hits:
+                declarations = list(re.finditer(r"\bfunction\s+([A-Za-z_]\w*)\s*\(", source[:hit.start()], re.I))
+                function_name = declarations[-1].group(1).lower() if declarations else ""
+                if function_name in safe_token_helpers:
+                    continue
+                filtered.append(hit)
+            hits = filtered
+        elif name == "unchecked":
+            # Safe ++i loop counters are common and do not warrant a signal
+            # without unchecked arithmetic on values that affect accounting.
+            filtered = []
+            for hit in hits:
+                tail = re.match(r"\s*([^{}]*)\}", source[hit.end():], re.S)
+                body = tail.group(1) if tail else ""
+                if re.fullmatch(r"\s*(?:\+\+\s*[A-Za-z_]\w*|[A-Za-z_]\w*\s*\+\+|--\s*[A-Za-z_]\w*|[A-Za-z_]\w*\s*--)\s*;?\s*", body):
+                    continue
+                filtered.append(hit)
+            hits = filtered
         if not hits:
             continue
-        lines = []
-        for hit in hits[:4]:
-            lines.append(source.count("\n", 0, hit.start()) + 1)
+        lines = [source.count("\n", 0, hit.start()) + 1 for hit in hits[:4]]
         found.append({
             "signal": name,
             "weight": weight,
@@ -571,6 +626,8 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
     if not isinstance(candidates, list):
         raise ValueError("Input must be a JSON array produced by frontier.py github")
     results = []
+    first_seen_file_hash = {}
+    first_seen_repo_fingerprint = {}
     for repo in candidates[:limit]:
         full_name = repo.get("full_name", "")
         if not isinstance(full_name, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", full_name):
@@ -580,6 +637,8 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
         signals = []
         snippets = []
         files_scanned = []
+        file_hashes = []
+        duplicate_source_files = []
         chars_left = 40000
         for item in paths[:max_files]:
             path = item.get("path", "")
@@ -599,32 +658,89 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
                 continue
             if not source or chars_left <= 0:
                 continue
-            source = source[:chars_left]
-            chars_left -= len(source)
-            files_scanned.append({"path": path, "language": language, "characters": len(source)})
-            signals.extend(analyze_source(language, source, path))
-            snippets.append(f"FILE: {path}\n{source}")
+            raw_bytes = source.encode("utf-8")
+            source_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+            git_blob_sha1 = hashlib.sha1(
+                b"blob " + str(len(raw_bytes)).encode("ascii") + b"\x00" + raw_bytes
+            ).hexdigest()
+            previous = first_seen_file_hash.get(source_sha256)
+            duplicate_of = None
+            if previous and previous["repository"] != full_name:
+                duplicate_of = {"repository": previous["repository"], "path": previous["path"]}
+                duplicate_source_files.append({
+                    "path": path,
+                    "source_sha256": source_sha256,
+                    "duplicate_of": duplicate_of,
+                })
+            elif not previous:
+                first_seen_file_hash[source_sha256] = {"repository": full_name, "path": path}
+
+            analyzed_source = source[:chars_left]
+            chars_left -= len(analyzed_source)
+            files_scanned.append({
+                "path": path,
+                "language": language,
+                "characters": len(source),
+                "source_sha256": source_sha256,
+                "git_blob_sha1": git_blob_sha1,
+                "duplicate_of": duplicate_of,
+            })
+            signals.extend(analyze_source(language, analyzed_source, path))
+            snippets.append(f"FILE: {path}\n{analyzed_source}")
+            file_hashes.append(source_sha256)
             time.sleep(0.05)
+
         weights = {}
         for signal in signals:
             weights[signal["signal"]] = max(weights.get(signal["signal"], 0), signal["weight"])
         score = min(100, sum(sorted(weights.values(), reverse=True)[:5]))
+        repo_fingerprint = hashlib.sha256("\n".join(sorted(file_hashes)).encode("utf-8")).hexdigest() if file_hashes else None
+        earlier_repo = first_seen_repo_fingerprint.get(repo_fingerprint) if repo_fingerprint else None
+        if repo_fingerprint and not earlier_repo:
+            first_seen_repo_fingerprint[repo_fingerprint] = {"repository": full_name}
+        duplicate_repo_of = earlier_repo.get("repository") if earlier_repo else None
+        created_at = repo.get("created_at")
+        pushed_at = repo.get("pushed_at")
+        now = utc_now()
+        created_recently = False
+        pushed_recently = False
+        try:
+            created_recently = bool(created_at and _parse_datetime(created_at) and _parse_datetime(created_at) >= now - timedelta(days=7))
+        except (TypeError, ValueError):
+            pass
+        try:
+            pushed_recently = bool(pushed_at and _parse_datetime(pushed_at) and _parse_datetime(pushed_at) >= now - timedelta(days=3))
+        except (TypeError, ValueError):
+            pass
+
         result = {
             "source": "github",
             "full_name": full_name,
             "repository_url": repo.get("repository_url"),
             "description": repo.get("description"),
-            "created_at": repo.get("created_at"),
-            "pushed_at": repo.get("pushed_at"),
+            "created_at": created_at,
+            "pushed_at": pushed_at,
+            "created_within_7d": created_recently,
+            "pushed_within_3d": pushed_recently,
             "language_tags": repo.get("language_tags"),
             "stars": repo.get("stars"),
             "files_scanned": files_scanned,
             "signals": signals,
             "source_signal_score": score,
+            "repository_source_fingerprint": repo_fingerprint,
+            "duplicate_source_files": duplicate_source_files,
+            "duplicate_source_file_count": len(duplicate_source_files),
+            "duplicate_repository_of": duplicate_repo_of,
+            "source_novelty": "exact_duplicate_repository" if duplicate_repo_of else ("reused_source_file" if duplicate_source_files else "no_duplicate_detected"),
             "status": "screened" if files_scanned else "source_fetch_failed",
             "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability.",
         }
-        if ai and files_scanned and score >= min_score:
+        if ai and files_scanned and duplicate_repo_of:
+            result["deepseek_skipped_reason"] = (
+                f"Source files exactly match earlier repository {duplicate_repo_of}; "
+                "AI review skipped to avoid repeated spend on identical code."
+            )
+        elif ai and files_scanned and score >= min_score:
             try:
                 result["deepseek"] = _deepseek_repo_review(
                     {"repository": full_name, "url": repo.get("repository_url"), "source_signal_score": score},
@@ -636,9 +752,8 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
         elif ai:
             result["deepseek_skipped_reason"] = f"Source score {score} below min-score {min_score}, or no readable source files."
         results.append(result)
-        print(f"[GitHub scan] {full_name}: score={score}, signals={len(signals)}, files={len(files_scanned)}")
+        print(f"[GitHub scan] {full_name}: score={score}, signals={len(signals)}, files={len(files_scanned)}, novelty={result['source_novelty']}")
     return results
-
 
 def main():
     parser = argparse.ArgumentParser(description="Frontier discovery for newly listed smart-contract sources and deployments")
