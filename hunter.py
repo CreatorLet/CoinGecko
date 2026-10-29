@@ -283,13 +283,177 @@ def goplus_risk_signals(data):
     return min(100, sum(s["weight"] for s in signals)), signals
 
 
+NODEREAL_PUBLIC_KEYS = {
+    # Public/shareable starter keys documented by NodeReal. Override with your
+    # own key in NODEREAL_API_KEY for higher quotas/reliability.
+    "bsc": "64a9df0874fb4a93b9d0a3849de012d3",
+    "eth": "1659dfb40aa24bbb8153a677b98064d7",
+}
+
+
+def nodereal_rpc(network, method, params):
+    """Call NodeReal's documented JSON-RPC/Enhanced API endpoint."""
+    endpoint_chain = {"bsc": "bsc-mainnet", "eth": "eth-mainnet"}.get(network)
+    if not endpoint_chain:
+        raise RuntimeError(f"NodeReal creation lookup is unsupported for network={network}")
+    api_key = (os.getenv("NODEREAL_API_KEY") or "").strip() or NODEREAL_PUBLIC_KEYS[network]
+    url = f"https://{endpoint_chain}.nodereal.io/v1/{api_key}"
+    try:
+        response = requests.post(
+            url,
+            headers={"content-type": "application/json", "accept": "application/json"},
+            json={"jsonrpc": "2.0", "method": method, "params": params, "id": 1},
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise RuntimeError(f"NodeReal {method} request failed: {str(exc)[:500]}") from exc
+    if isinstance(payload, dict) and payload.get("error"):
+        error = payload["error"]
+        raise RuntimeError(f"NodeReal {method} returned RPC error: {str(error)[:500]}")
+    result = payload.get("result") if isinstance(payload, dict) else None
+    # Enhanced API methods wrap their payload one extra level; standard eth_*
+    # methods generally return the raw result.
+    if isinstance(result, dict) and "result" in result:
+        result = result.get("result")
+    if result is None:
+        raise RuntimeError(f"NodeReal {method} returned no result: {str(payload)[:500]}")
+    return result
+
+
+def nodereal_creation_context(network, address, window_blocks=45000, max_related=20):
+    """Get deployment creator/time from NodeReal; look for nearby direct CREATEs."""
+    if network not in ("bsc", "eth"):
+        return None
+    created = nodereal_rpc(network, "nr_getContractCreationTransaction", [address])
+    if not isinstance(created, dict):
+        raise RuntimeError("NodeReal returned an unexpected contract-creation response")
+    creator = created.get("from")
+    creation_hash = created.get("hash")
+    timestamp_raw = created.get("timestamp")
+    block_raw = created.get("blockNumber")
+    try:
+        timestamp = int(timestamp_raw) if timestamp_raw is not None else 0
+    except (TypeError, ValueError):
+        timestamp = 0
+    try:
+        block = int(block_raw, 0) if isinstance(block_raw, str) else int(block_raw)
+    except (TypeError, ValueError):
+        block = 0
+    actual_address = created.get("contractAddress") or created.get("ContractAddress") or address
+    if not creator or not ADDRESS.fullmatch(str(creator)) or not timestamp or not block:
+        raise RuntimeError("NodeReal creation response lacks creator, timestamp, or block number")
+
+    context = {
+        "status": "ok",
+        "provider": "NodeReal",
+        "creator": creator,
+        "creation_tx": creation_hash,
+        "creation_timestamp": timestamp,
+        "creation_block": block,
+        "contract_address_from_receipt": actual_address,
+        "related_deployments": [],
+        "related_search": {
+            "provider": "NodeReal",
+            "window_blocks_each_side": window_blocks,
+            "max_related": max_related,
+        },
+        "note": "Related deployments are only leads; shared deployer and timestamp do not prove a shared protocol.",
+    }
+
+    # Search a bounded window around the deployment. This keeps the shared
+    # public starter key inexpensive; a personal NODEREAL_API_KEY may allow
+    # higher usage. NodeReal's enhanced transfer API permits <=100,000 block
+    # span, so use a total span of <=90,000 blocks.
+    try:
+        latest_raw = nodereal_rpc(network, "eth_blockNumber", [])
+        latest = int(latest_raw, 16) if isinstance(latest_raw, str) else int(latest_raw)
+        from_block = max(0, block - window_blocks)
+        to_block = min(latest, block + window_blocks)
+        if to_block - from_block > 100000:
+            to_block = from_block + 100000
+        transfers = nodereal_rpc(network, "nr_getAssetTransfers", [{
+            "category": ["external"],
+            "fromBlock": hex(from_block),
+            "toBlock": hex(to_block),
+            "fromAddress": creator,
+            "order": "asc",
+            "excludeZeroValue": False,
+            "maxCount": "0x3e8",
+        }])
+        if isinstance(transfers, dict):
+            transfers = transfers.get("transfers") or []
+        found = {}
+        checked_receipts = 0
+        if isinstance(transfers, list):
+            for tx in transfers:
+                if not isinstance(tx, dict):
+                    continue
+                tx_hash = tx.get("hash")
+                if not tx_hash or tx.get("to"):
+                    continue
+                if (tx_hash or "").lower() == (creation_hash or "").lower():
+                    continue
+                created_address = tx.get("contractAddress")
+                if not created_address and checked_receipts < 25:
+                    checked_receipts += 1
+                    try:
+                        receipt = nodereal_rpc(network, "eth_getTransactionReceipt", [tx_hash])
+                        if isinstance(receipt, dict):
+                            created_address = receipt.get("contractAddress")
+                    except RuntimeError:
+                        continue
+                if not created_address or not ADDRESS.fullmatch(str(created_address)):
+                    continue
+                if str(created_address).lower() == address.lower():
+                    continue
+                row = {
+                    "address": created_address,
+                    "tx_hash": tx_hash,
+                    "timestamp": tx.get("blockTimestamp") or tx.get("blockTimeStamp"),
+                    "block": tx.get("blockNum"),
+                    "creation_type": "direct",
+                }
+                found[str(created_address).lower()] = row
+                if len(found) >= max_related:
+                    break
+        context["related_deployments"] = sorted(
+            found.values(),
+            key=lambda item: abs(int(item.get("timestamp") or 0) - timestamp)
+        )
+        context["related_search"]["transfers_checked"] = len(transfers) if isinstance(transfers, list) else 0
+        context["related_search"]["creation_receipts_checked"] = checked_receipts
+        if not context["related_deployments"]:
+            context["reason"] = (
+                "Creation metadata succeeded, but no related direct deployments were found "
+                "in the bounded block window. Factory-created/internal deployments may not appear."
+            )
+    except (RuntimeError, requests.RequestException, ValueError, TypeError, KeyError) as exc:
+        context["related_search"]["warning"] = str(exc)[:700]
+        context["reason"] = "Creation metadata succeeded; related-deployment lookup was unavailable."
+    return context
+
+
 def creation_context(network, address, window_days=14, max_related=20, goplus_data=None):
     """
     Passive explorer lookup for the contract creator and nearby deployments.
     Shared deployer/time is a lead only, not proof of a common protocol.
     """
+    nodereal_error = None
+
+    if network in ("bsc", "eth"):
+        try:
+            node_context = nodereal_creation_context(network, address)
+            if node_context:
+                return node_context
+        except (RuntimeError, requests.RequestException, ValueError, TypeError, KeyError) as exc:
+            nodereal_error = str(exc)[:700]
+
     def goplus_fallback(reason):
         data = goplus_data or {}
+        if nodereal_error:
+            reason += "; NodeReal fallback failed: " + nodereal_error
         creator = data.get("creator_address")
         timestamp_raw = data.get("deployed_time")
         try:
