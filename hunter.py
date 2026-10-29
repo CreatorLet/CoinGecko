@@ -807,19 +807,54 @@ def slither_scan(root, paths):
     return report.get("results", {}).get("detectors", [])
 
 
+def _known_low_priority_finding(detector):
+    """Return a note for widely-recognized Slither patterns that are benign in context."""
+    check = str(detector.get("check") or "")
+    description = str(detector.get("description") or "")
+    if (
+        check == "incorrect-exp"
+        and "Math.mulDiv" in description
+        and "(3 * denominator) ^ 2" in description
+    ):
+        return (
+            "Known Slither false positive: OpenZeppelin-style Math.mulDiv intentionally uses "
+            "bitwise XOR to seed the modular inverse for Newton-Raphson division."
+        )
+    if check == "divide-before-multiply" and "Math.mulDiv" in description:
+        return (
+            "Low-priority known arithmetic pattern in Math.mulDiv's modular-inverse algorithm; "
+            "do not score this warning alone as a fund-loss issue."
+        )
+    if check == "divide-before-multiply" and "Base64.encode" in description:
+        return (
+            "Low-priority encoding-length arithmetic in Base64.encode; this is not evidence of "
+            "a fund-accounting error by itself."
+        )
+    return None
+
+
 def rank(detectors):
     weights = {"High": 30, "Medium": 12, "Low": 3, "Informational": 0, "Optimization": 0}
     confidence = {"High": 1, "Medium": 0.7, "Low": 0.4}
-    scored = [
-        { "check": d.get("check"), "impact": d.get("impact"), "confidence": d.get("confidence"),
-          "description": d.get("description", "")[:1600],
-          "score": round(weights.get(d.get("impact"), 0) * confidence.get(d.get("confidence"), 0.4), 1)}
-        for d in detectors
-    ]
-    scored.sort(key=lambda d: d["score"], reverse=True)
+    scored = []
+    for detector in detectors:
+        note = _known_low_priority_finding(detector)
+        priority_score = 0 if note else round(
+            weights.get(detector.get("impact"), 0)
+            * confidence.get(detector.get("confidence"), 0.4), 1
+        )
+        scored.append({
+            "check": detector.get("check"),
+            "impact": detector.get("impact"),
+            "confidence": detector.get("confidence"),
+            "description": detector.get("description", "")[:1600],
+            "score": priority_score,
+            "triage_status": "known_pattern_low_priority" if note else "untriaged",
+            "triage_note": note,
+        })
+    scored.sort(key=lambda detector: detector["score"], reverse=True)
     # Prioritization only, NOT a CVSS score or a confirmed exploit.
-    return min(100, round(sum(d["score"] for d in scored[:5]))), scored
-
+    return min(100, round(sum(detector["score"] for detector in scored[:5]))), scored
 
 def source_risk_signals(root, paths):
     """Conservative source-code triage cues; signals are not confirmed vulnerabilities."""
@@ -830,10 +865,10 @@ def source_risk_signals(root, paths):
          "A self-destruct opcode is present; assess reachability and current chain semantics."),
         ("upgrade-control", r"\b(?:upgradeTo|upgradeToAndCall|setImplementation|_authorizeUpgrade)\s*\(", 20,
          "Upgrade/implementation control exists; review upgrade authorization and storage safety."),
-        ("low-level-call", r"\.call\s*(?:\{[^}]*\})?\s*\(", 12,
-         "A low-level call exists; review destination control, return handling, and reentrancy context."),
-        ("tx-origin", r"\btx\.origin\b", 12,
-         "tx.origin is used; determine whether it participates in authorization."),
+        ("low-level-call", r"\.call\s*(?:\{[^}]*\})?\s*\(", 5,
+         "A low-level call exists; inspect its caller, destination, return checks and reentrancy context. This syntax alone is weak evidence."),
+        ("tx-origin", r"\btx\.origin\b", 4,
+         "tx.origin is used; determine whether it actually authorizes access. Its presence alone is weak evidence."),
         ("privileged-mint", r"\bfunction\s+(?:mint|mintTo|issue|createTokens?)\s*\([^;{]*\)\s*[^{;]*\b(?:onlyOwner|onlyRole|hasRole|auth)\b", 18,
          "A mint-like function appears access-controlled; determine whether supply controls create a meaningful loss path."),
         ("blacklist-controls", r"\bfunction\s+(?:blacklist|blackList|setBlacklisted|blockAddress|setBlocked|banAddress|unbanAddress)\s*\(", 16,
@@ -842,8 +877,8 @@ def source_risk_signals(root, paths):
          "Adjustable fee/tax controls exist; review bounds, access control, and whether users can be trapped."),
         ("transfer-restrictions", r"\bfunction\s+(?:setMaxTx|setMaxWallet|setTrading|enableTrading|disableTrading|setLimits|removeLimits)[A-Za-z0-9_]*\s*\(", 10,
          "Trading or transfer limits are configurable; review who can change them and their effect."),
-        ("withdraw-rescue", r"\bfunction\s+(?:withdraw|rescue|recover|sweep|emergencyWithdraw)[A-Za-z0-9_]*\s*\(", 8,
-         "A withdrawal/rescue function exists; review the assets, recipient, authorization, and accounting."),
+        ("withdraw-rescue", r"\bfunction\s+(?:withdraw|rescue|recover|sweep|emergencyWithdraw)[A-Za-z0-9_]*\s*\(", 3,
+         "A withdrawal/rescue function exists; inspect its authorization, destination and accounting. The function name alone is weak evidence."),
     ]
     third_party_parts = {"@openzeppelin", "openzeppelin", "node_modules", "solmate", "forge-std"}
     signal_map = {}
