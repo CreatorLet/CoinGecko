@@ -130,7 +130,8 @@ def goplus_access_token():
         response = requests.post(
             "https://api.gopluslabs.io/api/v1/token",
             headers={"accept": "application/json", "content-type": "application/json"},
-            json={"app_key": app_key, "time": now, "sign": signature},
+            # GoPlus's own integration examples serialize time as a JSON string.
+            json={"app_key": app_key, "time": str(now), "sign": signature},
             timeout=25,
         )
         response.raise_for_status()
@@ -157,23 +158,31 @@ def goplus_token_security(network, address):
     url = f"https://api.gopluslabs.io/api/v1/token_security/{CHAIN_IDS[network]}"
     headers = {"accept": "application/json"}
     auth_error = None
+    app_key_configured = bool((os.getenv("GOPLUS_API_KEY") or os.getenv("GOPLUS_APP_KEY") or "").strip())
+    app_secret_configured = bool((os.getenv("GOPLUS_API_SECRET") or os.getenv("GOPLUS_APP_SECRET") or "").strip())
+    explicit_token_configured = bool(os.getenv("GOPLUS_ACCESS_TOKEN", "").strip())
     try:
         access_token = goplus_access_token()
-        headers["Authorization"] = f"Bearer {access_token}"
+        # GoPlus's official integration example uses the raw access token.
+        headers["Authorization"] = access_token
     except RuntimeError as exc:
-        # The public/permissionless endpoint may still work without credentials.
         auth_error = str(exc)
+        if app_key_configured or app_secret_configured or explicit_token_configured:
+            # Do not silently fall back to anonymous requests after credentials
+            # were supplied but failed; return the actual token-generation error.
+            return {"status": "unavailable", "reason": auth_error, "data": {}}
+        # Without credentials, still try the documented permissionless endpoint.
     try:
         response = requests.get(
             url, params={"contract_addresses": address.lower()},
             headers=headers, timeout=25,
         )
         if response.status_code in (401, 403) and headers.get("Authorization"):
-            # Some GoPlus integrations document the raw token rather than the
-            # Bearer form. Retry once with the raw minted token.
+            # API reference pages differ on raw-token vs Bearer formatting;
+            # retry once with Bearer if raw-token authorization was rejected.
             response = requests.get(
                 url, params={"contract_addresses": address.lower()},
-                headers={"accept": "application/json", "Authorization": headers["Authorization"][7:]},
+                headers={"accept": "application/json", "Authorization": "Bearer " + headers["Authorization"]},
                 timeout=25,
             )
         response.raise_for_status()
