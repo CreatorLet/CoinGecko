@@ -363,6 +363,9 @@ def _asset_url_address(url):
 def _immunefi_status(row, now):
     launch = _parse_datetime(row.get("launchDate"))
     end = _parse_datetime(row.get("endDate"))
+    paused = row.get("isPaused")
+    if paused is True or str(paused).strip().lower() in ("1", "true", "yes"):
+        return "paused", launch, end
     if launch and launch > now:
         return "upcoming", launch, end
     if end and end <= now:
@@ -455,6 +458,9 @@ def discover_audit_pipelines(limit_per_source=300):
                         "launch_date": row.get("launchDate"),
                         "end_date": row.get("endDate"),
                         "updated_at": row.get("updatedDate"),
+                        "is_paused": bool(row.get("isPaused")),
+                        "paused_at": row.get("pausedAt"),
+                        "paused_message": row.get("pausedMessage"),
                         "days_until_end": max(0, (end - now).days) if end and end > now else None,
                         "max_bounty_usd": row.get("maxBounty"),
                         "program_type": row.get("programType"),
