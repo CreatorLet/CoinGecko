@@ -87,3 +87,12 @@ Example:
 python hunter.py scan --input discovery.json --min-liquidity 10000 --min-score 30 --limit 5 --ai --out report.json
 ```
 The terminal output shows Slither, source-signal, and combined review scores independently.
+
+
+## Creator-linked contract discovery
+
+Each static scan now also requests Etherscan V2 contract-creation metadata. Where the creator address and target creation transaction can be found in its indexed transaction history, the report lists up to 20 contracts created by the same address within 14 days of the target's creation transaction. It uses direct creation transactions and indexed internal CREATE/CREATE2 records.
+
+This is only a relationship heuristic. A shared deployer and nearby deployment time do **not** prove contracts belong to the same project. The scanner records these as `creation_context.related_deployments`; it does not automatically scan these addresses or call DeepSeek on them. Review the code and source verification of each related address before adding it to a future scan.
+
+The lookup is skipped if `ETHERSCAN_API_KEY` is unavailable, and partial if the target creation transaction is not present in the creator's recent indexed history (the current query checks up to 100 recent records per transaction endpoint). API plans and chain coverage may limit results.
