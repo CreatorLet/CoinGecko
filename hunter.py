@@ -370,6 +370,12 @@ def nodereal_creation_context(network, address, window_blocks=5000, max_related=
     except (TypeError, ValueError):
         block = 0
     actual_address = created.get("contractAddress") or created.get("ContractAddress") or address
+    creation_destination = created.get("to") or ""
+    factory_candidate = (
+        creation_destination if ADDRESS.fullmatch(str(creation_destination))
+        and str(creation_destination).lower() != address.lower()
+        else None
+    )
     if not creator or not ADDRESS.fullmatch(str(creator)) or not timestamp or not block:
         raise RuntimeError("NodeReal creation response lacks creator, timestamp, or block number")
 
@@ -381,6 +387,11 @@ def nodereal_creation_context(network, address, window_blocks=5000, max_related=
         "creation_timestamp": timestamp,
         "creation_block": block,
         "contract_address_from_receipt": actual_address,
+        "creation_transaction_to": creation_destination or None,
+        "creation_mode": "factory_or_contract_call" if factory_candidate else "direct_or_unknown",
+        "factory_candidate": factory_candidate,
+        "target_creation_tx_seen_in_history": False,
+        "same_destination_calls": [],
         "related_deployments": [],
         "related_search": {
             "provider": "NodeReal",
@@ -401,6 +412,8 @@ def nodereal_creation_context(network, address, window_blocks=5000, max_related=
         from_block = max(0, block - window_blocks)
         to_block = min(latest, block + window_blocks)
         found = {}
+        same_destination_calls = []
+        target_creation_tx_seen = False
         receipts_checked = 0
         creation_candidates = 0
         tx_checked = 0
@@ -437,10 +450,21 @@ def nodereal_creation_context(network, address, window_blocks=5000, max_related=
                     if not isinstance(tx, dict):
                         continue
                     tx_hash = tx.get("hash")
-                    if not tx_hash or tx_hash.lower() == (creation_hash or "").lower():
+                    if not tx_hash:
                         continue
+                    tx_to = tx.get("to") or ""
+                    if tx_hash.lower() == (creation_hash or "").lower():
+                        target_creation_tx_seen = True
+                        continue
+                    if factory_candidate and str(tx_to).lower() == factory_candidate.lower():
+                        same_destination_calls.append({
+                            "tx_hash": tx_hash,
+                            "block": tx.get("blockNum") or tx.get("blockNumber"),
+                            "timestamp": tx.get("blockTimeStamp") or tx.get("blockTimestamp"),
+                            "destination": tx_to,
+                        })
                     # A direct contract-creation transaction has no destination address.
-                    if tx.get("to") not in (None, ""):
+                    if tx_to not in (None, ""):
                         continue
                     creation_candidates += 1
                     if receipts_checked >= 50:
@@ -479,6 +503,8 @@ def nodereal_creation_context(network, address, window_blocks=5000, max_related=
                     break
             cursor = chunk_end + 1
 
+        context["target_creation_tx_seen_in_history"] = target_creation_tx_seen
+        context["same_destination_calls"] = same_destination_calls[:10]
         context["related_deployments"] = sorted(
             found.values(),
             key=lambda item: abs((item.get("timestamp") or timestamp) - timestamp)
