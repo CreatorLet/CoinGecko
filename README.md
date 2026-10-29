@@ -68,3 +68,22 @@ No DeepSeek credits are used without `--ai`. A previous zero severity score mean
 ### Source-provider fallback
 
 The scanner tries Etherscan V2 when `ETHERSCAN_API_KEY` is configured. If the explorer has no verified source or its source request fails, it tries Sourcify's public V2 contract lookup. The report records `source_provider` so you can see which source was used. Neither service can return original source for a contract that is not verified in its database.
+
+
+## Source-level review signals
+
+Slither's own score can be zero when it only reports informational/optimization findings or no findings. To keep this from being the only filter, the scanner also checks first-party source files for review cues such as `delegatecall`, `selfdestruct`, upgrade hooks, low-level calls, `tx.origin`, privileged mint functions, blacklist/transfer controls, adjustable fees, and withdraw/rescue functions.
+
+The report separates:
+- `score`: Slither-based prioritization score.
+- `source_signal_score`: a simple, heuristic score for source-code patterns needing review.
+- `review_score`: the sum capped at 100; with `--ai`, DeepSeek is called only when this reaches `--min-score`.
+- `source_risk_signals`: which patterns were detected and source locations.
+
+These are **triage cues, not vulnerability severity ratings**. Legitimate contracts may use these patterns, and a contract with no signals may still have a serious business-logic bug. The AI assessment should be treated as a hypothesis until independently verified. Third-party dependency files such as OpenZeppelin are excluded from source-signal scoring to reduce noise.
+
+Example:
+```bash
+python hunter.py scan --input discovery.json --min-liquidity 10000 --min-score 30 --limit 5 --ai --out report.json
+```
+The terminal output shows Slither, source-signal, and combined review scores independently.
