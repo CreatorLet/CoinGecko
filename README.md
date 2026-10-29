@@ -1,6 +1,6 @@
 # CoinGecko smart contract screener
 
-Minimal pipeline: **GeckoTerminal new pools -> reserve/volume filter -> Etherscan verified token source -> Slither -> optional DeepSeek**.
+Minimal pipeline: **GeckoTerminal new pools -> reserve/volume filter -> Etherscan/Sourcify source -> Slither + GoPlus token-risk signals -> optional DeepSeek**.
 
 No Immunefi matching, Foundry, transaction execution, or automated live-contract testing. Slither output is a **screening signal**, not proof of exploitable fund loss.
 
@@ -18,20 +18,20 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Install `solc-select` (`pip install solc-select`). The scanner selects the compiler version reported by Etherscan or Sourcify and installs it if needed. Source retrieval prefers Etherscan V2 and falls back to Sourcify's free public verification database. Slither must be on PATH; check with `slither --version`. Put your `ETHERSCAN_API_KEY` in `.env`. Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. Don't commit `.env`.
+Install `solc-select` (`pip install solc-select`). The scanner selects the compiler version reported by Etherscan or Sourcify and installs it if needed. Source retrieval prefers Etherscan V2 and falls back to Sourcify's free public verification database. Slither must be on PATH; check with `slither --version`. Put your `ETHERSCAN_API_KEY` in `.env`. GoPlus token-security requests are attempted with no key; if the API returns 401/403, add a current GoPlus bearer token to `GOPLUS_AUTHORIZATION` (with or without the `Bearer ` prefix). Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. Don't commit `.env`.
 
 ## Step 1: Discover
 
 ```bash
-python hunter.py discover --network bsc --limit 20 --out result.txt
+python hunter.py discover --network bsc --limit 20 --out discovery.json
 ```
 
-The uploaded `result.txt` is already a usable discovery JSON array. If running in a fresh clone, make sure your discovery file is present locally.
+`discovery.json` is the default local discovery input in your Colab workflow. Ensure it exists in the working directory before scanning.
 
 ## Step 2: Slither only (no DeepSeek spend)
 
 ```bash
-python hunter.py scan --input result.txt --min-liquidity 10000 --limit 5 --out report.json
+python hunter.py scan --input discovery.json --min-liquidity 10000 --limit 5 --out report.json
 ```
 
 The `--limit` counts selected candidate tokens, not necessarily successful completed Slither scans. Filtering is done first, with highest-liquidity pools first; a low-liquidity or unverified contract is skipped or reported as an error. The scanner operates on the discovered **base token contract**, not automatically on the project's vault or DEX pool.
@@ -39,10 +39,10 @@ The `--limit` counts selected candidate tokens, not necessarily successful compl
 ## Step 3: Optional DeepSeek review
 
 ```bash
-python hunter.py scan --input result.txt --min-liquidity 10000 --min-score 30 --limit 5 --ai --out report.json
+python hunter.py scan --input discovery.json --min-liquidity 10000 --min-score 30 --limit 5 --ai --out report.json
 ```
 
-`--min-score` is a rough severity prioritization threshold **derived from Slither alerts**. It is not actual loss severity or a guarantee of exploitability. DeepSeek only receives source excerpts if selected findings meet the threshold.
+`--min-score` is a rough triage threshold derived from Slither alerts, first-party source pattern checks, and GoPlus token-risk metadata. It is not a confirmed vulnerability severity or proof of exploitability. DeepSeek receives source excerpts and risk cues only when the combined score reaches the threshold.
 
 ## Limitations
 
@@ -76,9 +76,11 @@ Slither's own score can be zero when it only reports informational/optimization 
 
 The report separates:
 - `score`: Slither-based prioritization score.
-- `source_signal_score`: a simple, heuristic score for source-code patterns needing review.
-- `review_score`: the sum capped at 100; with `--ai`, DeepSeek is called only when this reaches `--min-score`.
-- `source_risk_signals`: which patterns were detected and source locations.
+- `source_signal_score`: heuristic cues found in first-party source.
+- `goplus_security`: external token-security data such as creator/owner metadata, mint/ownership controls, taxes, and other flags.
+- `goplus_risk_score` / `goplus_risk_signals`: risk cues derived from GoPlus metadata.
+- `review_score`: the Slither/source/GoPlus scores combined and capped at 100; DeepSeek is called only when this reaches `--min-score`.
+- `creation_context`: Etherscan creator data where supported, or GoPlus creator/timestamp fallback. On BSC, Etherscan's free tier may block transaction-history/creation endpoints; GoPlus creator data does not by itself provide the creator's full deployment history.
 
 These are **triage cues, not vulnerability severity ratings**. Legitimate contracts may use these patterns, and a contract with no signals may still have a serious business-logic bug. The AI assessment should be treated as a hypothesis until independently verified. Third-party dependency files such as OpenZeppelin are excluded from source-signal scoring to reduce noise.
 
@@ -103,3 +105,8 @@ The lookup is skipped if `ETHERSCAN_API_KEY` is unavailable, and partial if the 
 The report's `creation_context.reason` now includes the Etherscan API response (status/message/result) if `getcontractcreation` cannot return a record. This is intentional: source-code retrieval working does not prove every API endpoint is available under the same key or plan. The creation endpoint expects `contractaddresses` (up to five comma-separated addresses), and a valid response includes `contractCreator`, `txHash`, `blockNumber`, and `timestamp`.
 
 The scanner now uses that response's timestamp directly for the 14-day related-deployment window instead of trying to recover the target's timestamp from the creator's recent transaction history. It requests up to 1,000 normal and internal transactions for related-deployment discovery. Any transaction-list API warnings appear in `creation_context.transaction_lookup_warning`.
+
+
+## BSC creation-history limitation and fallback
+
+Etherscan source/ABI APIs can work on a chain even when its free-tier transaction-history/contract-creation endpoint is blocked. For BSC, `creation_context` now falls back to the GoPlus token-security record for `creator_address` and `deployed_time` when available. Since that metadata is not a full creator transaction history, `related_deployments` may remain empty. The GoPlus risk record is also attached to the scan and contributes a separate, transparent triage score; risk flags are not proof of a code vulnerability.
