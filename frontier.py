@@ -393,7 +393,12 @@ def _active_cantina_status(row, now):
     end = _parse_datetime(timeframe.get("end") or row.get("endDate") or row.get("end_date"))
     if status in ("complete", "completed", "ended", "closed", "archived", "cancelled", "canceled"):
         return None, start, end
+    # Explicit end dates win over stale "live" badges from cached APIs.
+    if end and end <= now:
+        return None, start, end
     if start and start > now:
+        return "upcoming", start, end
+    if status in ("upcoming", "scheduled", "not_started"):
         return "upcoming", start, end
     if status in ("live", "active", "open", "running", "in_progress"):
         return "active", start, end
@@ -434,7 +439,7 @@ def discover_audit_pipelines(limit_per_source=300):
                     if not slug or not title:
                         continue
                     status, launch, end = _immunefi_status(row, now)
-                    if status == "ended":
+                    if status in ("ended", "paused"):
                         continue
                     assets = [
                         asset for asset in (row.get("assets") or [])
