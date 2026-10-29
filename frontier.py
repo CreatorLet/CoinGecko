@@ -49,11 +49,16 @@ GITHUB_API = "https://api.github.com"
 GITHUB_LANGUAGE_FILTERS = ("Solidity", "Vyper", "Rust")
 GITHUB_SKIP_PARTS = {
     "node_modules", "vendor", "vendors", "lib", "libs", "target", "build",
-    "artifacts", "cache", "dist", ".git", "third_party", "third-party",
-    "dependencies", "deps", "test", "tests", "script", "scripts", "fixture",
-    "fixtures", "mock", "mocks", "example", "examples", "docs", "doc",
-    "migration", "migrations", "generated", "gen", "benchmark", "benchmarks",
+    "artifacts", "cache", ".cache", "dist", ".git", "third_party", "third-party",
+    "dependencies", "deps", ".deps", ".yarn", "bower_components", "coverage",
+    "test", "tests", "script", "scripts", "fixture", "fixtures", "mock", "mocks",
+    "example", "examples", "docs", "doc", "migration", "migrations", "generated",
+    "gen", "benchmark", "benchmarks",
 }
+GITHUB_VENDOR_PARTS = (
+    "openzeppelin", "solmate", "forge-std", "layerzero", "uniswap-v2-core",
+    "uniswap-v2-periphery", "pancake-swap-core", "pancakeswap",
+)
 ADDRESS = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
 
@@ -190,9 +195,17 @@ def _candidate_contract_paths(tree):
             continue
         # Test fixtures and deployment scripts are useful for context but are a
         # noisy primary target for source-first vulnerability triage.
-        if any(part in GITHUB_SKIP_PARTS for part in lower_parts):
+        if any(
+            part in GITHUB_SKIP_PARTS
+            or part.startswith(("test-", "test_", "fixture-", "mock-", "script-"))
+            or any(vendor in part for vendor in GITHUB_VENDOR_PARTS)
+            for part in lower_parts
+        ):
             continue
-        if basename.endswith((".t.sol", ".test.sol", "_test.sol")) or basename.startswith(("test_", "mock_")):
+        if (
+            basename.endswith((".t.sol", ".test.sol", "_test.sol", "test.sol", "tests.sol", "_mock.sol"))
+            or basename.startswith(("test", "mock", "fake", "dummy"))
+        ):
             continue
         all_paths.add(path)
     has_anchor = any(PurePosixPath(p).name.lower() == "anchor.toml" for p in all_paths)
@@ -836,9 +849,17 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
                 continue
             parts = tuple(part.lower() for part in PurePosixPath(path).parts)
             basename = PurePosixPath(path).name.lower()
-            if any(part in GITHUB_SKIP_PARTS for part in parts):
+            if any(
+                part in GITHUB_SKIP_PARTS
+                or part.startswith(("test-", "test_", "fixture-", "mock-", "script-"))
+                or any(vendor in part for vendor in GITHUB_VENDOR_PARTS)
+                for part in parts
+            ):
                 continue
-            if basename.endswith((".t.sol", ".test.sol", "_test.sol")) or basename.startswith(("test_", "mock_")):
+            if (
+                basename.endswith((".t.sol", ".test.sol", "_test.sol", "test.sol", "tests.sol", "_mock.sol"))
+                or basename.startswith(("test", "mock", "fake", "dummy"))
+            ):
                 continue
             encoded_path = "/".join(quote(part, safe="") for part in path.split("/"))
             url = f"https://raw.githubusercontent.com/{full_name}/{quote(branch, safe='')}/{encoded_path}"
