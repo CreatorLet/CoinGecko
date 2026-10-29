@@ -204,14 +204,38 @@ def goplus_risk_signals(data):
     return min(100, sum(s["weight"] for s in signals)), signals
 
 
-def creation_context(network, address, window_days=14, max_related=20):
+def creation_context(network, address, window_days=14, max_related=20, goplus_data=None):
     """
     Passive explorer lookup for the contract creator and nearby deployments.
     Shared deployer/time is a lead only, not proof of a common protocol.
     """
+    def goplus_fallback(reason):
+        data = goplus_data or {}
+        creator = data.get("creator_address")
+        timestamp_raw = data.get("deployed_time")
+        try:
+            timestamp = int(float(timestamp_raw)) if timestamp_raw not in (None, "") else 0
+        except (TypeError, ValueError):
+            timestamp = 0
+        if creator and ADDRESS.fullmatch(str(creator)):
+            return {
+                "status": "partial",
+                "provider": "GoPlus",
+                "creator": creator,
+                "creation_timestamp": timestamp or None,
+                "related_deployments": [],
+                "reason": (
+                    reason + "; GoPlus provided creator metadata, but this provider "
+                    "does not provide the creator's deployment transaction history."
+                ),
+            }
+        return {"status": "unavailable", "reason": reason,
+                "fallback": "GoPlus did not provide a creator address for this token."}
+
     key = os.getenv("ETHERSCAN_API_KEY")
     if not key:
-        return {"status": "skipped", "reason": "ETHERSCAN_API_KEY not configured"}
+        return goplus_fallback("ETHERSCAN_API_KEY not configured")
+
 
     def endpoint(params, expect_list=True):
         request = {"chainid": CHAIN_IDS[network], "apikey": key, **params}
@@ -232,12 +256,9 @@ def creation_context(network, address, window_days=14, max_related=20):
             "contractaddresses": address,
         })
         if error:
-            return {
-                "status": "unavailable",
-                "reason": "getcontractcreation request failed: " + error,
-            }
+            return goplus_fallback("getcontractcreation request failed: " + error)
         if not created:
-            return {"status": "unavailable", "reason": "Explorer returned no creation record"}
+            return goplus_fallback("Explorer returned no creation record")
         first = created[0]
         creator = first.get("contractCreator") or first.get("contractcreator")
         creation_hash = first.get("txHash") or first.get("txhash")
