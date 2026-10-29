@@ -880,11 +880,24 @@ def source_risk_signals(root, paths):
         ("withdraw-rescue", r"\bfunction\s+(?:withdraw|rescue|recover|sweep|emergencyWithdraw)[A-Za-z0-9_]*\s*\(", 3,
          "A withdrawal/rescue function exists; inspect its authorization, destination and accounting. The function name alone is weak evidence."),
     ]
-    third_party_parts = {"@openzeppelin", "openzeppelin", "node_modules", "solmate", "forge-std"}
+    third_party_parts = {
+        "@openzeppelin", "openzeppelin", "node_modules", "solmate", "forge-std",
+        "vendor", "vendors", "third_party", "third-party", ".deps", "deps",
+        "dependencies", "layerzero", "uniswap-v2-core", "uniswap-v2-periphery",
+        "pancake-swap-core", "pancakeswap",
+    }
+    vendor_markers = (
+        "openzeppelin", "solmate", "forge-std", "layerzero", "uniswap-v2-core",
+        "uniswap-v2-periphery", "pancake-swap-core", "pancakeswap", "node_modules",
+    )
     signal_map = {}
     for rel in paths:
         path = Path(rel)
-        if any(part.lower() in third_party_parts for part in path.parts):
+        parts_lower = [part.lower() for part in path.parts]
+        if any(
+            part in third_party_parts or any(marker in part for marker in vendor_markers)
+            for part in parts_lower
+        ):
             continue
         full_path = root / path
         try:
