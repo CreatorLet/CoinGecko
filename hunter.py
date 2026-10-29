@@ -1,5 +1,6 @@
 """GeckoTerminal discovery -> verified source -> Slither -> optional DeepSeek review."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -94,41 +95,106 @@ def sourcify_source(network, address):
     }
 
 
+_GOPLUS_ACCESS_TOKEN = None
+_GOPLUS_ACCESS_TOKEN_EXPIRES = 0
+
+
+def goplus_access_token():
+    """Return an access token created from the GoPlus app key/secret."""
+    global _GOPLUS_ACCESS_TOKEN, _GOPLUS_ACCESS_TOKEN_EXPIRES
+    # An already-minted access token may be provided for manual workflows.
+    manual = os.getenv("GOPLUS_ACCESS_TOKEN", "").strip()
+    if manual:
+        return manual
+
+    app_key = (os.getenv("GOPLUS_API_KEY") or os.getenv("GOPLUS_APP_KEY") or "").strip()
+    app_secret = (os.getenv("GOPLUS_API_SECRET") or os.getenv("GOPLUS_APP_SECRET") or "").strip()
+    if not app_key or not app_secret:
+        # Backward compatibility: this variable must contain an access token,
+        # never an app secret.
+        manual = os.getenv("GOPLUS_AUTHORIZATION", "").strip()
+        if manual:
+            return manual.removeprefix("Bearer ").strip()
+        raise RuntimeError(
+            "GoPlus credentials missing. Set GOPLUS_API_KEY and GOPLUS_API_SECRET "
+            "(or GOPLUS_APP_KEY and GOPLUS_APP_SECRET) in .env. Do not put the app secret "
+            "in GOPLUS_AUTHORIZATION; that variable only accepts an already-minted access token."
+        )
+
+    now = int(time.time())
+    if _GOPLUS_ACCESS_TOKEN and now < _GOPLUS_ACCESS_TOKEN_EXPIRES:
+        return _GOPLUS_ACCESS_TOKEN
+
+    signature = hashlib.sha1(f"{app_key}{now}{app_secret}".encode("utf-8")).hexdigest()
+    try:
+        response = requests.post(
+            "https://api.gopluslabs.io/api/v1/token",
+            headers={"accept": "application/json", "content-type": "application/json"},
+            json={"app_key": app_key, "time": now, "sign": signature},
+            timeout=25,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise RuntimeError(f"GoPlus access-token request failed: {str(exc)[:500]}") from exc
+
+    data = payload.get("result") if isinstance(payload, dict) else None
+    token = (data or {}).get("access_token") if isinstance(data, dict) else None
+    token = token or (payload.get("access_token") if isinstance(payload, dict) else None)
+    if not token:
+        msg = payload.get("message", "No access_token in response") if isinstance(payload, dict) else "Invalid response"
+        raise RuntimeError(f"GoPlus access-token request returned no token: {str(msg)[:500]}")
+
+    # Most GoPlus access tokens are long-lived, but cache conservatively for
+    # 20 minutes to avoid requesting a token for every token contract scanned.
+    _GOPLUS_ACCESS_TOKEN = str(token)
+    _GOPLUS_ACCESS_TOKEN_EXPIRES = now + 1200
+    return _GOPLUS_ACCESS_TOKEN
+
+
 def goplus_token_security(network, address):
-    """Fetch GoPlus token-risk metadata; supports optional bearer authorization."""
+    """Fetch GoPlus token-risk metadata using a minted access token when configured."""
     url = f"https://api.gopluslabs.io/api/v1/token_security/{CHAIN_IDS[network]}"
     headers = {"accept": "application/json"}
-    authorization = os.getenv("GOPLUS_AUTHORIZATION", "").strip()
-    if authorization:
-        headers["Authorization"] = (
-            authorization if authorization.lower().startswith("bearer ")
-            else "Bearer " + authorization
-        )
+    auth_error = None
+    try:
+        access_token = goplus_access_token()
+        headers["Authorization"] = f"Bearer {access_token}"
+    except RuntimeError as exc:
+        # The public/permissionless endpoint may still work without credentials.
+        auth_error = str(exc)
     try:
         response = requests.get(
             url, params={"contract_addresses": address.lower()},
             headers=headers, timeout=25,
         )
+        if response.status_code in (401, 403) and headers.get("Authorization"):
+            # Some GoPlus integrations document the raw token rather than the
+            # Bearer form. Retry once with the raw minted token.
+            response = requests.get(
+                url, params={"contract_addresses": address.lower()},
+                headers={"accept": "application/json", "Authorization": headers["Authorization"][7:]},
+                timeout=25,
+            )
         response.raise_for_status()
         payload = response.json()
     except (requests.RequestException, ValueError) as exc:
-        return {"status": "unavailable", "reason": str(exc)[:600], "data": {}}
+        reason = str(exc)[:600]
+        if auth_error:
+            reason = f"{auth_error}; GoPlus API request also failed: {reason}"
+        return {"status": "unavailable", "reason": reason, "data": {}}
 
     code = str(payload.get("code", ""))
     if code not in ("1", "2"):
-        return {
-            "status": "unavailable",
-            "reason": f"GoPlus code={code}; message={payload.get('message', '')}",
-            "data": {},
-        }
+        reason = f"GoPlus code={code}; message={payload.get('message', '')}"
+        if auth_error:
+            reason = f"{auth_error}; {reason}"
+        return {"status": "unavailable", "reason": reason, "data": {}}
     result = payload.get("result") or {}
     entry = result.get(address.lower()) or result.get(address) or {}
     if not isinstance(entry, dict) or not entry:
-        return {
-            "status": "unavailable",
-            "reason": f"GoPlus returned no record (code={code}; message={payload.get('message', '')})",
-            "data": {},
-        }
+        reason = f"GoPlus returned no record (code={code}; message={payload.get('message', '')})"
+        return {"status": "unavailable", "reason": reason, "data": {}}
 
     fields = (
         "creator_address", "deployed_time", "owner_address", "owner_balance",
@@ -141,7 +207,6 @@ def goplus_token_security(network, address):
         "fake_token", "honeypot_with_same_creator", "dexs",
     )
     slim = {key: entry[key] for key in fields if key in entry}
-    # Keep pool metadata compact so the report remains readable.
     if isinstance(slim.get("dexs"), list):
         slim["dexs"] = [
             {k: dex.get(k) for k in ("name", "liquidity", "pair") if k in dex}
