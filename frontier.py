@@ -254,11 +254,17 @@ def discover_github_repositories(days=7, limit=30, per_query=30):
                 errors.append(f"{language} search: {str(exc)[:200]}")
             time.sleep(0.15)
 
-    repos = sorted(
-        repo_map.values(),
-        key=lambda row: (row.get("pushed_at") or "", row.get("created_at") or ""),
-        reverse=True,
-    )
+    def freshness_key(row):
+        created = _parse_datetime(row.get("created_at"))
+        pushed = _parse_datetime(row.get("pushed_at"))
+        created_is_recent = bool(created and created >= now - timedelta(days=days))
+        return (
+            created_is_recent,
+            created or datetime.min.replace(tzinfo=timezone.utc),
+            pushed or datetime.min.replace(tzinfo=timezone.utc),
+        )
+
+    repos = sorted(repo_map.values(), key=freshness_key, reverse=True)
     output = []
     for repo in repos[:min(limit + 15, 60)]:
         full_name = repo.get("full_name")
@@ -821,6 +827,12 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
             path = item.get("path", "")
             language = item.get("language", "")
             if language not in ("Solidity", "Vyper", "Rust") or not path or ".." in PurePosixPath(path).parts:
+                continue
+            parts = tuple(part.lower() for part in PurePosixPath(path).parts)
+            basename = PurePosixPath(path).name.lower()
+            if any(part in GITHUB_SKIP_PARTS for part in parts):
+                continue
+            if basename.endswith((".t.sol", ".test.sol", "_test.sol")) or basename.startswith(("test_", "mock_")):
                 continue
             encoded_path = "/".join(quote(part, safe="") for part in path.split("/"))
             url = f"https://raw.githubusercontent.com/{full_name}/{quote(branch, safe='')}/{encoded_path}"
