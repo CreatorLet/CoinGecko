@@ -18,7 +18,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Install `solc-select` (`pip install solc-select`). The scanner selects the compiler version reported by Etherscan or Sourcify and installs it if needed. Source retrieval prefers Etherscan V2 and falls back to Sourcify's free public verification database. Slither must be on PATH; check with `slither --version`. Put your `ETHERSCAN_API_KEY` in `.env`. GoPlus token-security requests are attempted with no key; if the API returns 401/403, add a current GoPlus bearer token to `GOPLUS_AUTHORIZATION` (with or without the `Bearer ` prefix). Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. Don't commit `.env`.
+Install `solc-select` (`pip install solc-select`). The scanner selects the compiler version reported by Etherscan or Sourcify and installs it if needed. Source retrieval prefers Etherscan V2 and falls back to Sourcify's free public verification database. Slither must be on PATH; check with `slither --version`. Put your `ETHERSCAN_API_KEY`, `GOPLUS_API_KEY` (your GoPlus app key), and `GOPLUS_API_SECRET` (your GoPlus app secret) in `.env`. The code signs a timestamped request to obtain a temporary GoPlus access token automatically. Do **not** put the app secret in an Authorization header or in `GOPLUS_ACCESS_TOKEN`. Only populate `GOPLUS_ACCESS_TOKEN` if you already have a minted access token. Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. Never commit `.env` or print credential values.
 
 ## Step 1: Discover
 
@@ -110,3 +110,15 @@ The scanner now uses that response's timestamp directly for the 14-day related-d
 ## BSC creation-history limitation and fallback
 
 Etherscan source/ABI APIs can work on a chain even when its free-tier transaction-history/contract-creation endpoint is blocked. For BSC, `creation_context` now falls back to the GoPlus token-security record for `creator_address` and `deployed_time` when available. Since that metadata is not a full creator transaction history, `related_deployments` may remain empty. The GoPlus risk record is also attached to the scan and contributes a separate, transparent triage score; risk flags are not proof of a code vulnerability.
+
+
+### GoPlus authentication
+
+The GoPlus **app secret is not an access token**. Set both fields in your local Colab environment or `.env` file:
+```dotenv
+GOPLUS_API_KEY=your_app_key
+GOPLUS_API_SECRET=your_app_secret
+```
+The scanner calculates the documented SHA-1 signature from `app_key + current_unix_timestamp + app_secret`, calls GoPlus `/api/v1/token`, caches the returned access token for 20 minutes, then calls Token Security. It tries the documented `Authorization: Bearer <access_token>` format and retries once with the raw access token if the first request returns 401/403.
+
+If your earlier setup put only the app secret into `GOPLUS_AUTHORIZATION`, remove that setting. It is not a valid access token. Use `GOPLUS_API_KEY` and `GOPLUS_API_SECRET` separately. Do not upload the secret to GitHub. If the secret was ever committed or exposed in a public notebook/output, revoke/rotate it in GoPlus first.
