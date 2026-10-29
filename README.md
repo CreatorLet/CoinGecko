@@ -18,7 +18,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Install `solc-select` (`pip install solc-select`). The scanner selects the compiler version reported by Etherscan or Sourcify and installs it if needed. Source retrieval prefers Etherscan V2 and falls back to Sourcify's free public verification database. Slither must be on PATH; check with `slither --version`. Put your `ETHERSCAN_API_KEY`, `GOPLUS_API_KEY` (your GoPlus app key), and `GOPLUS_API_SECRET` (your GoPlus app secret) in `.env`. The code signs a timestamped request to obtain a temporary GoPlus access token automatically. Do **not** put the app secret in an Authorization header or in `GOPLUS_ACCESS_TOKEN`. Only populate `GOPLUS_ACCESS_TOKEN` if you already have a minted access token. Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. Never commit `.env` or print credential values.
+Install `solc-select` (`pip install solc-select`). The scanner selects the compiler version reported by Etherscan or Sourcify and installs it if needed. Source retrieval prefers Etherscan V2 and falls back to Sourcify's free public verification database. Slither must be on PATH; check with `slither --version`. Put your `ETHERSCAN_API_KEY`, `GOPLUS_API_KEY` (your GoPlus app key), and `GOPLUS_API_SECRET` (your GoPlus app secret) in `.env`. The code signs a timestamped request to obtain a temporary GoPlus access token automatically. Do **not** put the app secret in an Authorization header or in `GOPLUS_ACCESS_TOKEN`. Only populate `GOPLUS_ACCESS_TOKEN` if you already have a minted access token. Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. NodeReal is optional: it is enabled by default but falls back when unavailable, and a quota/auth failure disables it for the rest of that run. Set `ENABLE_NODEREAL=0` to bypass it completely. Never commit `.env` or print credential values.
 
 ## Step 1: Discover
 
@@ -42,12 +42,12 @@ The `--limit` counts selected candidate tokens, not necessarily successful compl
 python hunter.py scan --input discovery.json --min-liquidity 10000 --min-score 30 --limit 5 --ai --out report.json
 ```
 
-`--min-score` is a rough triage threshold derived from Slither alerts, first-party source pattern checks, and GoPlus token-risk metadata. It is not a confirmed vulnerability severity or proof of exploitability. DeepSeek receives source excerpts and risk cues only when the combined score reaches the threshold.
+`--min-score` is a rough triage threshold derived from Slither alerts and first-party source pattern checks only. GoPlus risk flags are recorded separately and passed as context, but do not independently trigger DeepSeek because they often describe owner-controlled functions or trading risks rather than an unprivileged fund-loss path. The threshold is not confirmed vulnerability severity or proof of exploitability.
 
 ## Limitations
 
-- Sources must be verified and compile locally. A source version/dependency mismatch may cause a Slither error.
-- Proxies are flagged rather than automatically scanning implementation addresses.
+- Sources need to be verified and compile locally. If neither Etherscan nor Sourcify supplies source, the target is marked `skipped_low_transparency`; it is not treated as safe.
+- Proxies whose implementation is not analyzed are marked `skipped_low_transparency` and skipped rather than guessed at.
 - Token contracts frequently lack the money-managing logic of an associated DeFi protocol.
 - GeckoTerminal's reported reserves can be volatile or manipulated, so liquidity is only a first-pass screening metric.
 - The tool doesn't assert Immunefi eligibility or authorization. Use passive analysis of publicly available code only; follow each program's rules before further testing or disclosure.
@@ -79,7 +79,7 @@ The report separates:
 - `source_signal_score`: heuristic cues found in first-party source.
 - `goplus_security`: external token-security data such as creator/owner metadata, mint/ownership controls, taxes, and other flags.
 - `goplus_risk_score` / `goplus_risk_signals`: risk cues derived from GoPlus metadata.
-- `review_score`: the Slither/source/GoPlus scores combined and capped at 100; DeepSeek is called only when this reaches `--min-score`.
+- `review_score`: the Slither/source-code scores combined and capped at 100; GoPlus's separate risk score is deliberately excluded from the AI threshold.
 - `creation_context`: Etherscan creator data where supported, or GoPlus creator/timestamp fallback. On BSC, Etherscan's free tier may block transaction-history/creation endpoints; GoPlus creator data does not by itself provide the creator's full deployment history.
 
 These are **triage cues, not vulnerability severity ratings**. Legitimate contracts may use these patterns, and a contract with no signals may still have a serious business-logic bug. The AI assessment should be treated as a hypothesis until independently verified. Third-party dependency files such as OpenZeppelin are excluded from source-signal scoring to reduce noise.
@@ -88,7 +88,7 @@ Example:
 ```bash
 python hunter.py scan --input discovery.json --min-liquidity 10000 --min-score 30 --limit 5 --ai --out report.json
 ```
-The terminal output shows Slither, source-signal, and combined review scores independently.
+The terminal output shows Slither, source-signal, GoPlus risk, and source-based review scores independently.
 
 
 ## Creator-linked contract discovery
@@ -109,7 +109,7 @@ The scanner now uses that response's timestamp directly for the 14-day related-d
 
 ## BSC creation-history fallback
 
-Etherscan source-code retrieval may work even when its free-tier BSC transaction-history/creation endpoint is blocked. For BSC and Ethereum, `creation_context` now tries NodeReal's `nr_getContractCreationTransaction` first; it returns the creator, creation block, transaction hash and timestamp. If no `NODEREAL_API_KEY` is configured, the code uses NodeReal's documented public/shareable starter key, which has lower quotas and may have method constraints. Add your own key to `.env` for more reliable use. If NodeReal is unavailable, the scanner falls back to Etherscan and then the GoPlus `creator_address` metadata when available.
+Etherscan source-code retrieval may work even when its free-tier BSC transaction-history/creation endpoint is blocked. NodeReal is **optional** and is enabled by default for BSC/Ethereum creation metadata. If you set `ENABLE_NODEREAL=0`, the program bypasses it and falls back to Etherscan and then the GoPlus `creator_address` metadata. If NodeReal gets HTTP 401/402/403 or exhausts retries on HTTP 429, a per-run circuit breaker disables further NodeReal calls so the rest of the scan continues via fallbacks. Add your own `NODEREAL_API_KEY` to `.env` for more reliable use than the public shared starter key.
 
 After getting the creation block, the scanner queries a bounded window (5,000 blocks on either side) using NodeReal's `nr_getTransactionByAddress` endpoint in chunks of at most 1,000 blocks. It filters for transactions from the same creator, then checks receipts for direct contract-creation transactions. This intentionally limits RPC calls. It can miss deployments outside the window, internal/factory-created contracts, or records omitted by API limits; it is not a complete creator history. Any discovered addresses are leads, not proof that the contracts belong to the same protocol. GoPlus risk data also contributes a separate triage score; its flags are not proof of a code vulnerability.
 
@@ -145,3 +145,29 @@ Then rerun the scan. The code never writes keys into reports. NodeReal documents
 
 
 The NodeReal creation context also records the creation transaction's `to` field, whether that transaction appeared in the sender history, a possible factory/launchpad destination, and up to 10 nearby transactions from the same creator to that same destination. These are diagnostic leads. A destination address is not conclusively a factory until its code/verified ABI is reviewed.
+
+
+## Low-transparency triage policy
+
+This hunter is prioritizing potential **unprivileged code-level vulnerabilities**, not owner-controlled token behavior or presumed rug risks. It therefore:
+- skips a contract when neither Etherscan nor Sourcify can provide verified source (`skipped_low_transparency`);
+- skips proxy targets whose implementation isn't handled by this version;
+- records GoPlus hidden-owner / non-open-source flags as transparency caveats;
+- does not let GoPlus-only flags, such as minting/blacklist/tax ownership controls, automatically trigger a DeepSeek call. DeepSeek requires Slither or first-party source-pattern signals to reach `--min-score`.
+
+These exclusions conserve research time; **they do not establish that an opaque or skipped contract is secure or attack-proof**. If no related deployments are found, that stage ends for that token and the program proceeds to static analysis and then the next discovery candidate.
+
+### Disable NodeReal
+
+In `.env`:
+```dotenv
+ENABLE_NODEREAL=0
+```
+
+Or in Colab:
+```python
+import os
+os.environ["ENABLE_NODEREAL"] = "0"
+```
+
+The scanner will then use Etherscan and GoPlus fallbacks for creator context. An empty `related_deployments` array is not a scan failure and does not stop the batch.
