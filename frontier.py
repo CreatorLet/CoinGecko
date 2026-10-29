@@ -991,7 +991,10 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
             "fund_handling_surface_types": fund_surfaces,
             "fund_handling_surface_score": fund_surface_score,
             "asset_bearing_code_candidate": bool(
-                {"token-transfer", "financial-entrypoint", "balance-or-liability-accounting"}.issubset(set(fund_surfaces))
+                ("token-transfer" in fund_surfaces and "financial-entrypoint" in fund_surfaces)
+                or ("native-value-transfer" in fund_surfaces and "financial-entrypoint" in fund_surfaces)
+                or ("balance-or-liability-accounting" in fund_surfaces and "financial-entrypoint" in fund_surfaces)
+                or ("external-protocol-call" in fund_surfaces and "financial-entrypoint" in fund_surfaces)
             ),
             "repository_source_fingerprint": repo_fingerprint,
             "duplicate_source_files": duplicate_source_files,
