@@ -322,8 +322,8 @@ def nodereal_rpc(network, method, params):
     return result
 
 
-def nodereal_creation_context(network, address, window_blocks=45000, max_related=20):
-    """Get deployment creator/time from NodeReal; look for nearby direct CREATEs."""
+def nodereal_creation_context(network, address, window_blocks=5000, max_related=20):
+    """Get deployment metadata and enumerate nearby direct creations by its sender."""
     if network not in ("bsc", "eth"):
         return None
     created = nodereal_rpc(network, "nr_getContractCreationTransaction", [address])
@@ -356,78 +356,116 @@ def nodereal_creation_context(network, address, window_blocks=45000, max_related
         "related_deployments": [],
         "related_search": {
             "provider": "NodeReal",
+            "method": "nr_getTransactionByAddress",
             "window_blocks_each_side": window_blocks,
             "max_related": max_related,
+            "block_chunks_queried": 0,
+            "creator_transactions_checked": 0,
+            "creation_candidates_checked": 0,
+            "creation_receipts_checked": 0,
         },
-        "note": "Related deployments are only leads; shared deployer and timestamp do not prove a shared protocol.",
+        "note": "Related deployments are leads only; shared deployer and timing do not prove a shared protocol.",
     }
 
-    # Search a bounded window around the deployment. This keeps the shared
-    # public starter key inexpensive; a personal NODEREAL_API_KEY may allow
-    # higher usage. NodeReal's enhanced transfer API permits <=100,000 block
-    # span, so use a total span of <=90,000 blocks.
     try:
         latest_raw = nodereal_rpc(network, "eth_blockNumber", [])
         latest = int(latest_raw, 16) if isinstance(latest_raw, str) else int(latest_raw)
         from_block = max(0, block - window_blocks)
         to_block = min(latest, block + window_blocks)
-        if to_block - from_block > 100000:
-            to_block = from_block + 100000
-        transfers = nodereal_rpc(network, "nr_getAssetTransfers", [{
-            "category": ["external"],
-            "fromBlock": hex(from_block),
-            "toBlock": hex(to_block),
-            "fromAddress": creator,
-            "order": "asc",
-            "excludeZeroValue": False,
-            "maxCount": "0x3e8",
-        }])
-        if isinstance(transfers, dict):
-            transfers = transfers.get("transfers") or []
         found = {}
-        checked_receipts = 0
-        if isinstance(transfers, list):
-            for tx in transfers:
-                if not isinstance(tx, dict):
-                    continue
-                tx_hash = tx.get("hash")
-                if not tx_hash or tx.get("to"):
-                    continue
-                if (tx_hash or "").lower() == (creation_hash or "").lower():
-                    continue
-                created_address = tx.get("contractAddress")
-                if not created_address and checked_receipts < 25:
-                    checked_receipts += 1
+        receipts_checked = 0
+        creation_candidates = 0
+        tx_checked = 0
+        cursor = from_block
+        while cursor <= to_block and len(found) < max_related:
+            chunk_end = min(to_block, cursor + 999)
+            page_key = None
+            page_count = 0
+            while page_count < 3 and len(found) < max_related:
+                params = {
+                    "category": ["external"],
+                    "addressType": "from",
+                    "address": creator,
+                    "fromBlock": hex(cursor),
+                    "toBlock": hex(chunk_end),
+                    "order": "asc",
+                    "excludeZeroValue": False,
+                    "maxCount": "0x3e8",
+                }
+                if page_key:
+                    params["pageKey"] = page_key
+                rows = nodereal_rpc(network, "nr_getTransactionByAddress", [params])
+                page_count += 1
+                if isinstance(rows, dict):
+                    transactions = rows.get("transfers") or rows.get("transactions") or []
+                    page_key = rows.get("pageKey")
+                elif isinstance(rows, list):
+                    transactions = rows
+                    page_key = None
+                else:
+                    raise RuntimeError("NodeReal transaction-by-address returned an unexpected response")
+                tx_checked += len(transactions)
+                for tx in transactions:
+                    if not isinstance(tx, dict):
+                        continue
+                    tx_hash = tx.get("hash")
+                    if not tx_hash or tx_hash.lower() == (creation_hash or "").lower():
+                        continue
+                    # A direct contract-creation transaction has no destination address.
+                    if tx.get("to") not in (None, ""):
+                        continue
+                    creation_candidates += 1
+                    if receipts_checked >= 50:
+                        continue
+                    receipts_checked += 1
                     try:
                         receipt = nodereal_rpc(network, "eth_getTransactionReceipt", [tx_hash])
-                        if isinstance(receipt, dict):
-                            created_address = receipt.get("contractAddress")
                     except RuntimeError:
                         continue
-                if not created_address or not ADDRESS.fullmatch(str(created_address)):
-                    continue
-                if str(created_address).lower() == address.lower():
-                    continue
-                row = {
-                    "address": created_address,
-                    "tx_hash": tx_hash,
-                    "timestamp": tx.get("blockTimestamp") or tx.get("blockTimeStamp"),
-                    "block": tx.get("blockNum"),
-                    "creation_type": "direct",
-                }
-                found[str(created_address).lower()] = row
-                if len(found) >= max_related:
+                    if not isinstance(receipt, dict):
+                        continue
+                    created_address = receipt.get("contractAddress")
+                    if not created_address or not ADDRESS.fullmatch(str(created_address)):
+                        continue
+                    if created_address.lower() == address.lower():
+                        continue
+                    try:
+                        tx_timestamp = int(tx.get("blockTimeStamp") or tx.get("blockTimestamp") or 0)
+                    except (TypeError, ValueError):
+                        tx_timestamp = 0
+                    try:
+                        tx_block_raw = tx.get("blockNum") or tx.get("blockNumber")
+                        tx_block = int(tx_block_raw, 0) if isinstance(tx_block_raw, str) else int(tx_block_raw or 0)
+                    except (TypeError, ValueError):
+                        tx_block = 0
+                    found[created_address.lower()] = {
+                        "address": created_address,
+                        "tx_hash": tx_hash,
+                        "timestamp": tx_timestamp or None,
+                        "block": tx_block or None,
+                        "creation_type": "direct",
+                    }
+                    if len(found) >= max_related:
+                        break
+                if not page_key:
                     break
+            cursor = chunk_end + 1
+
         context["related_deployments"] = sorted(
             found.values(),
-            key=lambda item: abs(int(item.get("timestamp") or 0) - timestamp)
+            key=lambda item: abs((item.get("timestamp") or timestamp) - timestamp)
         )
-        context["related_search"]["transfers_checked"] = len(transfers) if isinstance(transfers, list) else 0
-        context["related_search"]["creation_receipts_checked"] = checked_receipts
+        context["related_search"]["block_chunks_queried"] = (
+            (to_block - from_block) // 1000 + 1
+        )
+        context["related_search"]["creator_transactions_checked"] = tx_checked
+        context["related_search"]["creation_candidates_checked"] = creation_candidates
+        context["related_search"]["creation_receipts_checked"] = receipts_checked
         if not context["related_deployments"]:
             context["reason"] = (
-                "Creation metadata succeeded, but no related direct deployments were found "
-                "in the bounded block window. Factory-created/internal deployments may not appear."
+                "Creation metadata succeeded, but no additional direct deployments were recovered "
+                "from the bounded sender-transaction search. Factory-created deployments, RPC "
+                "pagination limits, or unsupported creation records can still be missed."
             )
     except (RuntimeError, requests.RequestException, ValueError, TypeError, KeyError) as exc:
         context["related_search"]["warning"] = str(exc)[:700]
