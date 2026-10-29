@@ -134,4 +134,11 @@ Optional for higher limits/reliability:
 ```dotenv
 NODEREAL_API_KEY=your_nodereal_key
 ```
-The shared starter key is public and quota-limited; use a personal key if calls fail or are throttled. The code never writes keys into the report. NodeReal contract-creation and enhanced transfer methods are documented for BSC and Ethereum mainnet.
+The shared starter key is public and quota-limited per IP, so unrelated users can exhaust its quota and cause HTTP 429. The scanner retries rate-limited calls with backoff, but repeated 429 errors require a personal NodeReal API key. Create a key in your NodeReal dashboard and enter it in the Colab runtime (never paste it into source code or GitHub):
+
+```python
+import os, getpass
+os.environ['NODEREAL_API_KEY'] = getpass.getpass('NodeReal API key: ')
+```
+
+Then rerun the scan. The code never writes keys into reports. NodeReal documents contract-creation and enhanced transaction methods for BSC and Ethereum mainnet.
