@@ -1,4 +1,4 @@
-"""GeckoTerminal -> scoped verified source -> Slither -> optional DeepSeek review."""
+"""GeckoTerminal discovery -> verified source -> Slither -> optional DeepSeek review."""
 import argparse
 import json
 import os
@@ -202,14 +202,14 @@ def deepseek_review(target, findings, sources, max_chars=30000):
 
 def scan_target(entry, ai=False, min_score=30):
     net, address = entry["network"], entry["address"]
-    result = {"network": net, "address": address, "program": entry.get("program"),
-              "authorized": True, "status": "pending"}
+    result = {"network": net, "address": address, "pool": entry.get("pool"),
+              "name": entry.get("name"), "reserve_usd": entry.get("reserve_usd"), "status": "pending"}
     try:
         source = verified_source(net, address)
         result["contract_name"] = source.get("ContractName")
         if source.get("Proxy") == "1":
             result["proxy_implementation"] = source.get("Implementation")
-            result["note"] = "Proxy detected: implementation must be separately approved and reviewed."
+            result["note"] = "Proxy detected: implementation analysis is not supported in this version."
             result["status"] = "proxy_requires_review"
             return result
         with tempfile.TemporaryDirectory() as dirname:
@@ -220,7 +220,7 @@ def scan_target(entry, ai=False, min_score=30):
             result.update({"score": score, "findings": findings, "status": "screened"})
             if ai and score >= min_score:
                 result["deepseek"] = deepseek_review(
-                    {"network": net, "address": address, "program": entry.get("program")},
+                    {"network": net, "address": address, "name": entry.get("name") },
                     findings, [root / p for p in paths])
                 result["status"] = "reviewed"
     except (RuntimeError, requests.RequestException, KeyError, ValueError, OSError) as exc:
@@ -230,15 +230,17 @@ def scan_target(entry, ai=False, min_score=30):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Scoped, read-only DeFi security research CLI")
+    parser = argparse.ArgumentParser(description="Read-only GeckoTerminal contract screening CLI")
     sub = parser.add_subparsers(dest="command", required=True)
     d = sub.add_parser("discover", help="Discover new GeckoTerminal pools; no scans")
     d.add_argument("--network", choices=sorted(CHAIN_IDS), default="eth")
     d.add_argument("--pages", type=int, default=1)
     d.add_argument("--limit", type=int, default=20)
     d.add_argument("--out", default="discovery.json")
-    s = sub.add_parser("scan", help="Scan ONLY explicitly authorized addresses")
-    s.add_argument("--scope", default="scope.json")
+    s = sub.add_parser("scan", help="Static scan discovered verified token sources; no live-network testing")
+    s.add_argument("--input", default="result.txt", help="JSON discovery output, e.g. result.txt or discovery.json")
+    s.add_argument("--min-liquidity", type=float, default=10000, help="Minimum reported pool reserve USD")
+    s.add_argument("--min-volume", type=float, default=0, help="Minimum reported 24h volume USD")
     s.add_argument("--limit", type=int, default=10)
     s.add_argument("--ai", action="store_true")
     s.add_argument("--min-score", type=int, default=30)
@@ -249,8 +251,35 @@ def main():
     else:
         if args.limit < 1 or not 0 <= args.min_score <= 100:
             parser.error("Invalid --limit or --min-score")
-        approved = list(allowed_targets(args.scope).values())[:args.limit]
-        result = [scan_target(target, ai=args.ai, min_score=args.min_score) for target in approved]
+        if args.min_liquidity < 0 or args.min_volume < 0:
+            parser.error("Liquidity/volume thresholds must be nonnegative")
+        candidates = json.loads(Path(args.input).read_text(encoding="utf-8"))
+        if not isinstance(candidates, list):
+            parser.error("Input must be a JSON array of discovery records")
+        eligible = []
+        seen = set()
+        for item in candidates:
+            if not isinstance(item, dict):
+                continue
+            net, addr = item.get("network"), item.get("base_token", "")
+            if net not in CHAIN_IDS or not ADDRESS.fullmatch(addr):
+                continue
+            try:
+                liquidity = float(item.get("reserve_usd") or 0)
+                volume = float(item.get("volume_24h_usd") or 0)
+            except (ValueError, TypeError):
+                continue
+            if not (liquidity >= args.min_liquidity and volume >= args.min_volume):
+                continue
+            identity = (net, addr.lower())
+            if identity in seen:
+                continue
+            seen.add(identity)
+            eligible.append((liquidity, {**item, "address": addr}))
+        eligible.sort(key=lambda x: x[0], reverse=True)
+        selected = [item for _, item in eligible[:args.limit]]
+        print(f"Eligible: {len(eligible)}; selected: {len(selected)} for static analysis")
+        result = [scan_target(target, ai=args.ai, min_score=args.min_score) for target in selected]
     Path(args.out).write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(f"Wrote {len(result)} records to {args.out}")
     if args.command == "scan":
