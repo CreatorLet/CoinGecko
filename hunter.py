@@ -1307,12 +1307,18 @@ def discover_protocol_contracts(network="eth", limit=40, protocol_limit=30,
         category = str(row.get("category") or "")
         if not any(hint in category.lower() for hint in _PROTOCOL_CATEGORY_HINTS):
             continue
-        slug = row.get("slug") or row.get("name")
-        if not slug:
+        slug = row.get("slug")
+        module = row.get("module")
+        if not slug and module:
+            module_hint = re.sub(r"^projects/", "", str(module).strip("/"))
+            slug = module_hint.split("/", 1)[0]
+        if not slug and not module:
+            # Do not guess an API slug from a display name; the adapter lookup
+            # must be traceable to the public protocol metadata.
             continue
         tvl = _defillama_chain_tvl(row, network)
         if tvl >= min_tvl:
-            eligible.append((tvl, row, str(slug)))
+            eligible.append((tvl, row, str(slug or module)))
     eligible.sort(key=lambda item: item[0], reverse=True)
     shortlisted = eligible[:min(protocol_limit, 100)]
     output = []
@@ -1320,8 +1326,12 @@ def discover_protocol_contracts(network="eth", limit=40, protocol_limit=30,
     for tvl, row, slug in shortlisted:
         name = str(row.get("name") or slug)
         try:
-            detail = get_json(f"{DEFILLAMA}/protocol/{slug}")
-            module = (detail.get("module") if isinstance(detail, dict) else None) or row.get("module")
+            module = row.get("module")
+            if not module:
+                detail = get_json(f"{DEFILLAMA}/protocol/{slug}")
+                module = detail.get("module") if isinstance(detail, dict) else None
+            if not module:
+                raise RuntimeError("Protocol metadata did not expose a DefiLlama adapter module")
             source, adapter_path = _fetch_defillama_adapter(module)
             addresses = _extract_adapter_addresses(source, network, addresses_per_protocol)
         except (requests.RequestException, RuntimeError, ValueError, KeyError) as exc:
