@@ -70,7 +70,7 @@ class FrontierTriageTests(unittest.TestCase):
         surfaces = {row["surface"] for row in signals}
         self.assertIn("token-transfer", surfaces)
         self.assertIn("financial-entrypoint", surfaces)
-        self.assertNotIn("source_signal_score", {row.keys() for row in signals})
+        self.assertTrue(all("score" not in row for row in signals))
 
     def test_unrelated_low_level_call_remains_visible(self):
         source = """
