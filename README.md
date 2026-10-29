@@ -1,56 +1,54 @@
-# CoinGecko: narrow bug-bounty research MVP
+# CoinGecko smart contract screener
 
-This is a **read-only, authorization-gated security screening tool**. It does **not** run Foundry, make on-chain transactions, execute exploits, or claim that a scanner warning proves a vulnerability.
+Minimal pipeline: **GeckoTerminal new pools -> reserve/volume filter -> Etherscan verified token source -> Slither -> optional DeepSeek**.
 
-## Stages
+No Immunefi matching, Foundry, transaction execution, or automated live-contract testing. Slither output is a **screening signal**, not proof of exploitable fund loss.
 
-1. `discover` queries the GeckoTerminal new-pools feed and saves token/pool addresses as JSON. Discovery alone **does not establish bounty eligibility or testing permission**.
-2. Researcher confirms that an exact **contract address** is explicitly in scope for an Immunefi program and enters it in `scope.json` with `authorized: true`.
-3. `scan` downloads verified Solidity source through Etherscan V2, runs local Slither, and orders findings by a rough screening priority.
-4. With `--ai`, only targets meeting the selected screening score go to DeepSeek for a defensive impact assessment.
+## Install
 
-**Important:** A pool's base token address is not necessarily the vault, pool, or protocol contract whose bugs could affect funds. Do not automatically add discovered tokens to the authorized scope file. A proxy implementation is flagged for manual review instead of silently scanning a possibly unauthorized target.
-
-## Setup (Python 3.10+)
+Python 3.10+ and Git are required. On Windows, WSL is recommended for Solidity tooling.
 
 ```bash
 git clone https://github.com/CreatorLet/CoinGecko.git
 cd CoinGecko
 python -m venv .venv
-# Windows Git Bash:
-source .venv/Scripts/activate
-# Linux/macOS:
-# source .venv/bin/activate
+source .venv/Scripts/activate  # Windows Git Bash
+# On Linux: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
-You must separately install a compatible `solc` Solidity compiler. E.g. install `solc-select`, then select a version compatible with the source. Source trees involving special compiler settings or dependencies may not compile; this is reported per target rather than hidden. On Windows, using WSL is generally easier for Slither and solc.
+Install `solc` (matching the target source's Solidity version). Slither must be on PATH; try `slither --version`. Put your `ETHERSCAN_API_KEY` in `.env`. Put `DEEPSEEK_API_KEY` in `.env` only for AI mode. Don't commit `.env`.
 
-Set `ETHERSCAN_API_KEY` in `.env`. Set `DEEPSEEK_API_KEY` only if using `--ai`. Never commit these keys.
-
-## Use
+## Step 1: Discover
 
 ```bash
-python hunter.py discover --network eth --pages 1 --limit 20 --out discovery.json
-cp scope.example.json scope.json
-# Edit scope.json: real program name and *explicitly approved* deployed address; set authorized=true.
-python hunter.py scan --scope scope.json --limit 5 --out report.json
-python hunter.py scan --scope scope.json --limit 5 --min-score 30 --ai --out report.json
+python hunter.py discover --network bsc --limit 20 --out result.txt
 ```
 
-Supported Gecko network IDs for v1: `eth`, `bsc`, `base`, `arbitrum`, `polygon_pos`, `optimism`.
+The uploaded `result.txt` is already a usable discovery JSON array. If running in a fresh clone, make sure your discovery file is present locally.
 
-## Honest limitations
+## Step 2: Slither only (no DeepSeek spend)
 
-- This version does not automatically match new Gecko pools to Immunefi programs; the manual allowlist is deliberate.
-- Slither detections are **indicators**, not confirmed exploitability or bounty severity. The score 0–100 is a *triage heuristic*.
-- Source retrieval depends on Etherscan V2 coverage and quotas. The currently installed `solc` version must match.
-- Multi-file and proxy projects may require dependency setup or manual implementation review. Errors are preserved in the JSON report.
-- There is no automated execution, fund-draining PoC, or live-network testing.
-- Avoid sending sensitive/private program code to an external AI provider unless the program permits it.
-- Respect each Immunefi program's scope, prohibited activities and reporting guidelines.
+```bash
+python hunter.py scan --input result.txt --min-liquidity 10000 --limit 5 --out report.json
+```
 
-## Next iterations (only after this stage works)
+The `--limit` counts selected candidate tokens, not necessarily successful completed Slither scans. Filtering is done first, with highest-liquidity pools first; a low-liquidity or unverified contract is skipped or reported as an error. The scanner operates on the discovered **base token contract**, not automatically on the project's vault or DEX pool.
 
-Add exact program-target mapping and improved compiler resolution, then only with controlled tests; **no Foundry is planned for this stage**.
+## Step 3: Optional DeepSeek review
+
+```bash
+python hunter.py scan --input result.txt --min-liquidity 10000 --min-score 30 --limit 5 --ai --out report.json
+```
+
+`--min-score` is a rough severity prioritization threshold **derived from Slither alerts**. It is not actual loss severity or a guarantee of exploitability. DeepSeek only receives source excerpts if selected findings meet the threshold.
+
+## Limitations
+
+- Sources must be verified and compile locally. A source version/dependency mismatch may cause a Slither error.
+- Proxies are flagged rather than automatically scanning implementation addresses.
+- Token contracts frequently lack the money-managing logic of an associated DeFi protocol.
+- GeckoTerminal's reported reserves can be volatile or manipulated, so liquidity is only a first-pass screening metric.
+- The tool doesn't assert Immunefi eligibility or authorization. Use passive analysis of publicly available code only; follow each program's rules before further testing or disclosure.
+- No Foundry or on-chain interactions are used.
