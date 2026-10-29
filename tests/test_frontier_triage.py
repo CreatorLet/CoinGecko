@@ -1,5 +1,7 @@
+import tempfile
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 
 from frontier import (
     _active_cantina_status,
@@ -8,7 +10,7 @@ from frontier import (
     _parse_datetime,
     analyze_source,
 )
-from hunter import rank
+from hunter import rank, source_risk_signals
 
 
 class FrontierTriageTests(unittest.TestCase):
@@ -24,7 +26,10 @@ class FrontierTriageTests(unittest.TestCase):
             {"type": "blob", "path": "script/Deploy.s.sol"},
             {"type": "blob", "path": "test/Vault.t.sol"},
             {"type": "blob", "path": "fixtures/MockToken.sol"},
-            {"type": "blob", "path": "lib/openzeppelin/contracts/utils/Math.sol"},
+            {"type": "blob", "path": "lib/openzeppelin-contracts/contracts/utils/Address.sol"},
+            {"type": "blob", "path": "contracts/test-helpers/MockERC20.sol"},
+            {"type": "blob", "path": "contracts/VaultTest.sol"},
+            {"type": "blob", "path": ".deps/npm/hardhat@3.21.0/console.sol"},
             {"type": "blob", "path": "node_modules/pkg/Math.sol"},
         ]
         paths, _, _ = _candidate_contract_paths(tree)
@@ -62,6 +67,20 @@ class FrontierTriageTests(unittest.TestCase):
         """
         signals = analyze_source("Solidity", source, "Example.sol")
         self.assertIn("low-level-call", [row["signal"] for row in signals])
+
+    def test_vendored_sources_do_not_drive_risk_score(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vendored = Path("lib/layerzero/protocol-v2/contracts/interfaces/ISendLib.sol")
+            file_path = root / vendored
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text(
+                "contract Example { function withdraw() external { target.delegatecall(data); } }",
+                encoding="utf-8",
+            )
+            score, signals = source_risk_signals(root, [vendored])
+        self.assertEqual(score, 0)
+        self.assertEqual(signals, [])
 
     def test_cantina_completed_contest_is_not_active(self):
         row = {
