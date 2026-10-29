@@ -179,7 +179,11 @@ def _candidate_contract_paths(tree):
         elif lower.endswith(".vy"):
             language = "Vyper"
         elif lower.endswith(".rs"):
-            if not (has_anchor or has_cargo or "/programs/" in "/" + lower or lower.startswith("programs/")):
+            rust_contract_markers = (
+                "anchor.toml", "programs/", "/programs/", "contracts/", "/contracts/",
+                "ink/", "/ink/", "near", "soroban", "stylus",
+            )
+            if not (has_anchor or any(marker in lower for marker in rust_contract_markers)):
                 continue
             language = "Rust"
         else:
@@ -225,7 +229,7 @@ def discover_github_repositories(days=7, limit=30, per_query=30):
         reverse=True,
     )
     output = []
-    for repo in repos[:min(limit * 2, 100)]:
+    for repo in repos[:min(limit + 15, 60)]:
         full_name = repo.get("full_name")
         branch = repo.get("default_branch") or "main"
         try:
