@@ -1139,12 +1139,18 @@ def main():
         for row in result:
             context = row.get("creation_context") or {}
             related = context.get("related_deployments") or []
+            linked = row.get("related_contract_reviews") or []
+            linked_summary = ",".join(
+                f"{item.get('address', '?')}:{item.get('status', '?')}"
+                for item in linked
+            ) or "-"
             print(row["network"], row["address"], row["status"],
                   f"slither={row.get('score', '-')}",
                   f"source_signals={row.get('source_signal_score', '-')}",
                   f"goplus={row.get('goplus_risk_score', '-')}",
                   f"review={row.get('review_score', '-')}",
                   f"related_deployments={len(related)}",
+                  f"linked_reviews={linked_summary}",
                   row.get("error") or row.get("skip_reason") or row.get("deepseek_skipped_reason", ""))
 
 
