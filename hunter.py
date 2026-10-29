@@ -68,25 +68,60 @@ def discover(network, pages=1, limit=20):
     return pools
 
 
+def sourcify_source(network, address):
+    """Fallback lookup in Sourcify's free public verification database."""
+    url = f"https://sourcify.dev/server/v2/contract/{CHAIN_IDS[network]}/{address}"
+    payload = get_json(url, {"fields": "all"})
+    sources = payload.get("sources") or (payload.get("stdJsonInput") or {}).get("sources")
+    if not isinstance(sources, dict) or not sources:
+        raise RuntimeError("Sourcify returned no verified source files")
+    normalized_sources = {}
+    for name, obj in sources.items():
+        if isinstance(obj, dict) and isinstance(obj.get("content"), str):
+            normalized_sources[name] = {"content": obj["content"]}
+    if not normalized_sources:
+        raise RuntimeError("Sourcify returned no usable Solidity source content")
+    compilation = payload.get("compilation") or {}
+    fq_name = compilation.get("fullyQualifiedName") or ""
+    contract_name = compilation.get("name") or (fq_name.rsplit(":", 1)[-1] if fq_name else "")
+    return {
+        "SourceCode": json.dumps(normalized_sources),
+        "ContractName": contract_name,
+        "CompilerVersion": compilation.get("compilerVersion") or compilation.get("compiler") or "",
+        "Proxy": "0",
+        "Implementation": "",
+        "_source_provider": "Sourcify",
+    }
+
+
 def verified_source(network, address):
+    """Prefer Etherscan V2; use Sourcify if the explorer source is unavailable."""
+    problems = []
     key = os.getenv("ETHERSCAN_API_KEY")
-    if not key:
-        raise RuntimeError("ETHERSCAN_API_KEY is required for source retrieval")
-    response = get_json(ETHERSCAN, {
-        "chainid": CHAIN_IDS[network],
-        "module": "contract",
-        "action": "getsourcecode",
-        "address": address,
-        "apikey": key,
-    })
-    data = response.get("result")
-    if not isinstance(data, list) or not data:
-        raise RuntimeError(f"Explorer did not return source: {response.get('message')} {data}")
-    entry = data[0]
-    source = entry.get("SourceCode", "")
-    if not source:
-        raise RuntimeError("Contract source not verified; skipping")
-    return entry
+    if key:
+        try:
+            response = get_json(ETHERSCAN, {
+                "chainid": CHAIN_IDS[network],
+                "module": "contract",
+                "action": "getsourcecode",
+                "address": address,
+                "apikey": key,
+            })
+            data = response.get("result")
+            if isinstance(data, list) and data and data[0].get("SourceCode"):
+                entry = data[0]
+                entry["_source_provider"] = "Etherscan"
+                return entry
+            problems.append("Etherscan: source unavailable or unverified")
+        except (requests.RequestException, ValueError, RuntimeError) as exc:
+            problems.append("Etherscan: " + str(exc)[:300])
+    else:
+        problems.append("Etherscan: ETHERSCAN_API_KEY not configured")
+    try:
+        return sourcify_source(network, address)
+    except (requests.RequestException, ValueError, RuntimeError, KeyError) as exc:
+        problems.append("Sourcify: " + str(exc)[:400])
+    raise RuntimeError("No verified source found. " + " | ".join(problems))
 
 
 def write_sources(entry, root):
@@ -220,6 +255,7 @@ def scan_target(entry, ai=False, min_score=30):
     try:
         source = verified_source(net, address)
         result["contract_name"] = source.get("ContractName")
+        result["source_provider"] = source.get("_source_provider", "Etherscan")
         if source.get("Proxy") == "1":
             result["proxy_implementation"] = source.get("Implementation")
             result["note"] = "Proxy detected: implementation analysis is not supported in this version."
