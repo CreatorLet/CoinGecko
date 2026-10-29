@@ -922,15 +922,40 @@ def scan_target(entry, ai=False, min_score=30):
         }
         result["goplus_risk_score"] = goplus_score
         result["goplus_risk_signals"] = goplus_signals
+        transparency_flags = []
+        if str(goplus_data.get("hidden_owner", "")).lower() in ("1", "true", "yes"):
+            transparency_flags.append("GoPlus flags hidden ownership; deprioritize unless source analysis finds an independent unprivileged-risk cue.")
+        if str(goplus_data.get("is_open_source", "")).lower() in ("0", "false", "no"):
+            transparency_flags.append("GoPlus reports source is not open; verification/source availability needs manual confirmation.")
+        if not goplus_data.get("creator_address"):
+            transparency_flags.append("GoPlus did not provide a creator address.")
+        result["transparency_flags"] = transparency_flags
         result["creation_context"] = creation_context(net, address, goplus_data=goplus_data)
 
-        source = verified_source(net, address)
+        try:
+            source = verified_source(net, address)
+        except RuntimeError as exc:
+            if "No verified source found." in str(exc):
+                result["status"] = "skipped_low_transparency"
+                result["skip_reason"] = (
+                    "No verified source could be retrieved from Etherscan or Sourcify. "
+                    "Skipping expensive AI review; this is a research-priority decision, "
+                    "not a conclusion that the contract is secure. " + str(exc)[:900]
+                )
+                result["research_disposition"] = "skip_unverified_source"
+                return result
+            raise
         result["contract_name"] = source.get("ContractName")
         result["source_provider"] = source.get("_source_provider", "Etherscan")
         if source.get("Proxy") == "1":
             result["proxy_implementation"] = source.get("Implementation")
-            result["note"] = "Proxy detected: implementation analysis is not supported in this version."
-            result["status"] = "proxy_requires_review"
+            result["note"] = "Proxy detected; implementation analysis is not supported in this version."
+            result["status"] = "skipped_low_transparency"
+            result["skip_reason"] = (
+                "Proxy/implementation path is not handled yet. Skipping this target rather than "
+                "guessing at implementation logic; continue with other candidates."
+            )
+            result["research_disposition"] = "skip_unresolved_proxy"
             return result
 
         result["compiler_version"] = select_compiler(source)
@@ -941,7 +966,11 @@ def scan_target(entry, ai=False, min_score=30):
             score, findings = rank(detectors)
             signal_score, signals = source_risk_signals(root, paths)
             combined_signals = signals + goplus_signals
-            review_score = min(100, score + signal_score + goplus_score)
+            # DeepSeek selection focuses on source-code evidence. GoPlus risk
+            # flags remain in the report/context but do not by themselves make a
+            # token a bounty candidate; many describe privileged owner controls
+            # or honeypot-like trading risks rather than an unprivileged exploit.
+            review_score = min(100, score + signal_score)
             result.update({
                 "score": score,
                 "findings": findings,
@@ -949,7 +978,9 @@ def scan_target(entry, ai=False, min_score=30):
                 "source_risk_signals": signals,
                 "goplus_risk_score": goplus_score,
                 "goplus_risk_signals": goplus_signals,
+                "transparency_flags": transparency_flags,
                 "review_score": review_score,
+                "research_disposition": "eligible_for_code_review" if review_score >= min_score else "low_priority_code_signals",
                 "status": "screened",
             })
             if ai and review_score >= min_score:
@@ -961,10 +992,18 @@ def scan_target(entry, ai=False, min_score=30):
                     findings, [root / p for p in paths], risk_signals=combined_signals)
                 result["status"] = "reviewed"
             elif ai:
-                result["deepseek_skipped_reason"] = (
-                    f"Review priority {review_score} is below --min-score {min_score}; "
-                    "this is a triage threshold, not proof of safety."
+                reasons = []
+                if review_score < min_score:
+                    reasons.append(
+                        f"Source-based review priority {review_score} is below --min-score {min_score}."
+                    )
+                if transparency_flags:
+                    reasons.append("Transparency/ownership caveats: " + " ".join(transparency_flags))
+                reasons.append(
+                    "GoPlus-only flags do not trigger DeepSeek because they are often privileged-control "
+                    "or token-trading indicators, not proof of an unprivileged fund-loss path."
                 )
+                result["deepseek_skipped_reason"] = " ".join(reasons)
     except (RuntimeError, requests.RequestException, KeyError, ValueError, OSError) as exc:
         result["status"] = "error"
         result["error"] = str(exc)[:1600]
