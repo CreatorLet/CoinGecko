@@ -94,6 +94,116 @@ def sourcify_source(network, address):
     }
 
 
+def goplus_token_security(network, address):
+    """Fetch GoPlus token-risk metadata; supports optional bearer authorization."""
+    url = f"https://api.gopluslabs.io/api/v1/token_security/{CHAIN_IDS[network]}"
+    headers = {"accept": "application/json"}
+    authorization = os.getenv("GOPLUS_AUTHORIZATION", "").strip()
+    if authorization:
+        headers["Authorization"] = (
+            authorization if authorization.lower().startswith("bearer ")
+            else "Bearer " + authorization
+        )
+    try:
+        response = requests.get(
+            url, params={"contract_addresses": address.lower()},
+            headers=headers, timeout=25,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        return {"status": "unavailable", "reason": str(exc)[:600], "data": {}}
+
+    code = str(payload.get("code", ""))
+    if code not in ("1", "2"):
+        return {
+            "status": "unavailable",
+            "reason": f"GoPlus code={code}; message={payload.get('message', '')}",
+            "data": {},
+        }
+    result = payload.get("result") or {}
+    entry = result.get(address.lower()) or result.get(address) or {}
+    if not isinstance(entry, dict) or not entry:
+        return {
+            "status": "unavailable",
+            "reason": f"GoPlus returned no record (code={code}; message={payload.get('message', '')})",
+            "data": {},
+        }
+
+    fields = (
+        "creator_address", "deployed_time", "owner_address", "owner_balance",
+        "owner_percent", "holder_count", "is_open_source", "is_proxy",
+        "is_mintable", "can_take_back_ownership", "owner_change_balance",
+        "hidden_owner", "selfdestruct", "external_call", "is_honeypot",
+        "cannot_sell_all", "cannot_buy", "is_blacklisted", "is_whitelisted",
+        "transfer_pausable", "slippage_modifiable", "buy_tax", "sell_tax",
+        "transfer_tax", "is_in_dex", "other_potential_risks", "note",
+        "fake_token", "honeypot_with_same_creator", "dexs",
+    )
+    slim = {key: entry[key] for key in fields if key in entry}
+    # Keep pool metadata compact so the report remains readable.
+    if isinstance(slim.get("dexs"), list):
+        slim["dexs"] = [
+            {k: dex.get(k) for k in ("name", "liquidity", "pair") if k in dex}
+            for dex in slim["dexs"][:10] if isinstance(dex, dict)
+        ]
+    return {"status": "partial" if code == "2" else "ok", "reason": payload.get("message"), "data": slim}
+
+
+def goplus_risk_signals(data):
+    """Convert third-party token flags into review cues, not a vulnerability verdict."""
+    rules = [
+        ("is_honeypot", 50, "GoPlus flags token as a possible honeypot."),
+        ("owner_change_balance", 25, "GoPlus reports owner-controlled balance changes."),
+        ("hidden_owner", 20, "GoPlus flags possible hidden ownership."),
+        ("is_mintable", 14, "GoPlus reports a mint capability."),
+        ("can_take_back_ownership", 14, "GoPlus reports ownership can potentially be reclaimed."),
+        ("selfdestruct", 14, "GoPlus reports self-destruct capability."),
+        ("cannot_sell_all", 20, "GoPlus reports restrictions on selling the full balance."),
+        ("cannot_buy", 15, "GoPlus reports that the token may not be buyable."),
+        ("is_blacklisted", 8, "GoPlus reports blacklist capability."),
+        ("transfer_pausable", 8, "GoPlus reports transfers can be paused."),
+        ("slippage_modifiable", 12, "GoPlus reports adjustable slippage/tax behavior."),
+        ("is_proxy", 8, "GoPlus identifies a proxy; its implementation needs separate review."),
+        ("honeypot_with_same_creator", 25, "GoPlus links the creator to another honeypot token."),
+    ]
+    signals = []
+    for field, weight, explanation in rules:
+        if str(data.get(field, "")).lower() in ("1", "true", "yes"):
+            signals.append({
+                "signal": "goplus:" + field,
+                "weight": weight,
+                "reason": explanation,
+                "field": field,
+                "value": data.get(field),
+            })
+    for field, label in (("sell_tax", "sell"), ("buy_tax", "buy"), ("transfer_tax", "transfer")):
+        raw = data.get(field)
+        try:
+            tax = float(raw) if raw not in (None, "") else None
+        except (TypeError, ValueError):
+            tax = None
+        if tax is None:
+            continue
+        weight = 20 if tax >= 0.5 else (10 if tax >= 0.1 else 0)
+        if weight:
+            signals.append({
+                "signal": "goplus:high_" + label + "_tax",
+                "weight": weight,
+                "reason": f"GoPlus reports {label} tax of {tax:.1%}; check if this is expected and adjustable.",
+                "field": field,
+                "value": raw,
+            })
+    if data.get("other_potential_risks"):
+        signals.append({
+            "signal": "goplus:other_potential_risks",
+            "weight": 12,
+            "reason": str(data["other_potential_risks"])[:500],
+            "field": "other_potential_risks",
+        })
+    return min(100, sum(s["weight"] for s in signals)), signals
+
+
 def creation_context(network, address, window_days=14, max_related=20):
     """
     Passive explorer lookup for the contract creator and nearby deployments.
