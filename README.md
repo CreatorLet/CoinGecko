@@ -107,9 +107,11 @@ The report's `creation_context.reason` now includes the Etherscan API response (
 The scanner now uses that response's timestamp directly for the 14-day related-deployment window instead of trying to recover the target's timestamp from the creator's recent transaction history. It requests up to 1,000 normal and internal transactions for related-deployment discovery. Any transaction-list API warnings appear in `creation_context.transaction_lookup_warning`.
 
 
-## BSC creation-history limitation and fallback
+## BSC creation-history fallback
 
-Etherscan source/ABI APIs can work on a chain even when its free-tier transaction-history/contract-creation endpoint is blocked. For BSC, `creation_context` now falls back to the GoPlus token-security record for `creator_address` and `deployed_time` when available. Since that metadata is not a full creator transaction history, `related_deployments` may remain empty. The GoPlus risk record is also attached to the scan and contributes a separate, transparent triage score; risk flags are not proof of a code vulnerability.
+Etherscan source-code retrieval may work even when its free-tier BSC transaction-history/creation endpoint is blocked. For BSC and Ethereum, `creation_context` now tries NodeReal's `nr_getContractCreationTransaction` first; it returns the creator, creation block, transaction hash and timestamp. If no `NODEREAL_API_KEY` is configured, the code uses NodeReal's documented public/shareable starter key, which has lower quotas and may have method constraints. Add your own key to `.env` for more reliable use. If NodeReal is unavailable, the scanner falls back to Etherscan and then the GoPlus `creator_address` metadata when available.
+
+After getting the creation block, the scanner queries a bounded window (45,000 blocks on either side, at most 90,000 blocks total) using NodeReal's enhanced transfer API. It looks for direct contract-creation transactions submitted by the same creator and reads receipts to recover their contract addresses. This is intentionally bounded to limit calls. It can miss deployments outside the window, internal/factory-created contracts, or records omitted by API limits. Any discovery is a lead, not proof that the contracts belong to the same protocol. GoPlus risk data is also attached to the scan and contributes a separate triage score; risk flags are not proof of a code vulnerability.
 
 
 ### GoPlus authentication
@@ -124,3 +126,12 @@ The scanner calculates the documented SHA-1 signature from `app_key + current_un
 **If token creation returns code 4012 (Wrong Signature):** GoPlus received the token request but could not validate the signature. Confirm that the app key and app secret are the matching pair from the same GoPlus app; check for extra spaces or accidentally using an API token in place of the app secret; then retry (the signature timestamp must be fresh). The code now reports the token endpoint's error directly instead of hiding it behind an anonymous request. The signature formula and required timestamp window are documented in [GoPlus's token endpoint reference](https://docs.gopluslabs.io/reference/getaccesstokenusingpost).
 
 If your earlier setup put only the app secret into `GOPLUS_AUTHORIZATION`, remove that setting. An app secret is not an access token. Use `GOPLUS_API_KEY` and `GOPLUS_API_SECRET` separately. Do not upload the secret to GitHub. If it was ever committed or exposed in a public notebook/output, revoke/rotate it in GoPlus first.
+
+
+### NodeReal setup
+
+Optional for higher limits/reliability:
+```dotenv
+NODEREAL_API_KEY=your_nodereal_key
+```
+The shared starter key is public and quota-limited; use a personal key if calls fail or are throttled. The code never writes keys into the report. NodeReal contract-creation and enhanced transfer methods are documented for BSC and Ethereum mainnet.
