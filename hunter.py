@@ -966,20 +966,19 @@ def scan_target(entry, ai=False, min_score=30):
     net, address = entry["network"], entry["address"]
     result = {"network": net, "address": address, "pool": entry.get("pool"),
               "name": entry.get("name"), "reserve_usd": entry.get("reserve_usd"),
-              "tvl_usd": entry.get("tvl_usd"), "protocol_name": entry.get("protocol_name"),
-              "protocol_slug": entry.get("protocol_slug"), "protocol_category": entry.get("protocol_category"),
-              "target_kind": entry.get("target_kind"), "adapter_path": entry.get("adapter_path"),
-              "candidate_role": entry.get("candidate_role"), "candidate_confidence": entry.get("candidate_confidence"),
-              "adapter_line": entry.get("adapter_line"),
-              "candidate_evidence": entry.get("candidate_evidence"), "status": "pending"}
+              "target_kind": entry.get("target_kind"), "verified_at": entry.get("verified_at"),
+              "sourcify_match": entry.get("sourcify_match"), "deployer": entry.get("deployer"),
+              "deployment_tx": entry.get("deployment_tx"), "deployment_block": entry.get("deployment_block"),
+              "block_timestamp": entry.get("block_timestamp"), "candidate_evidence": entry.get("candidate_evidence"),
+              "status": "pending"}
     try:
         # External token-risk metadata complements static analysis; API failure
         # is recorded but does not stop the source/Slither pipeline.
-        is_protocol_contract = entry.get("target_kind") == "protocol_contract"
-        if is_protocol_contract:
+        is_general_contract = entry.get("target_kind") in ("verified_contract", "chain_deployment")
+        if is_general_contract:
             goplus_result = {
                 "status": "not_applicable",
-                "reason": "GoPlus Token Security is token-focused; skipped for this protocol-contract candidate.",
+                "reason": "GoPlus Token Security is token-focused; skipped for this general contract candidate.",
                 "data": {},
             }
         else:
@@ -998,16 +997,10 @@ def scan_target(entry, ai=False, min_score=30):
             transparency_flags.append("GoPlus flags hidden ownership; deprioritize unless source analysis finds an independent unprivileged-risk cue.")
         if str(goplus_data.get("is_open_source", "")).lower() in ("0", "false", "no"):
             transparency_flags.append("GoPlus reports source is not open; verification/source availability needs manual confirmation.")
-        if not is_protocol_contract and not goplus_data.get("creator_address"):
+        if not is_general_contract and not goplus_data.get("creator_address"):
             transparency_flags.append("GoPlus did not provide a creator address.")
         result["transparency_flags"] = transparency_flags
-        if is_protocol_contract:
-            result["creation_context"] = {
-                "status": "not_applicable",
-                "reason": "Protocol contract candidates do not require token-creator linkage in this scan lane.",
-            }
-        else:
-            result["creation_context"] = creation_context(net, address, goplus_data=goplus_data)
+        result["creation_context"] = creation_context(net, address, goplus_data=goplus_data)
 
         # Only follow a factory/launchpad candidate when the creator made at
         # least one other nearby call to the same destination. One hop only.
@@ -1103,265 +1096,6 @@ def scan_target(entry, ai=False, min_score=30):
 
 
 
-DEFILLAMA = "https://api.llama.fi"
-_PROTOCOL_CATEGORY_HINTS = ("lending", "cdp", "yield", "staking", "restaking", "derivative", "dex", "bridge", "liquid staking", "options", "perpetual")
-_DEFILLAMA_CHAIN_NAMES = {
-    "eth": ("ethereum", "eth"), "bsc": ("bsc", "binance"), "base": ("base",),
-    "arbitrum": ("arbitrum",), "polygon_pos": ("polygon", "polygon_pos"), "optimism": ("optimism",),
-}
-_ADAPTER_CHAIN_KEYS = {
-    "eth": ("ethereum", "eth"), "bsc": ("bsc",), "base": ("base",),
-    "arbitrum": ("arbitrum",), "polygon_pos": ("polygon", "polygon_pos"), "optimism": ("optimism",),
-}
-_HEX_ADDRESS = re.compile(r"0x[a-fA-F0-9]{40}")
-_ADAPTER_POSITIVE_ROLE = re.compile(
-    r"pool.?data|lending|borrow|deposit|vault|market|staking|strategy|master.?chef|chef|"
-    r"comptroller|controller|address.?provider|factory|pair|router|gauge|reward.?pool|"
-    r"collateral|proxy|wrapper|exchange|contract.?address|vaults|markets|pool.?address|"
-    r"manager|oracle|implementation", re.IGNORECASE)
-_ADAPTER_NEGATIVE_ROLE = re.compile(
-    r"blacklist|whitelist|excluded|token.?list|\btokens?\b|\busers?\b|wallet|treasury|"
-    r"recipient|dead.?address|burn.?address|stablecoin", re.IGNORECASE)
-
-
-def _defillama_chain_tvl(row, network):
-    chain_tvls = row.get("chainTvls") or {}
-    for chain_name in _DEFILLAMA_CHAIN_NAMES[network]:
-        for key, value in chain_tvls.items():
-            if str(key).lower() != chain_name.lower():
-                continue
-            if isinstance(value, (int, float)):
-                return max(0.0, float(value))
-            if isinstance(value, dict):
-                direct = value.get("tvl")
-                if isinstance(direct, (int, float)):
-                    return max(0.0, float(direct))
-                if isinstance(direct, list) and direct:
-                    last = direct[-1]
-                    if isinstance(last, dict):
-                        amount = last.get("totalLiquidityUSD", last.get("tvl", 0))
-                        if isinstance(amount, (int, float)):
-                            return max(0.0, float(amount))
-            if isinstance(value, list) and value:
-                last = value[-1]
-                if isinstance(last, dict):
-                    amount = last.get("totalLiquidityUSD", last.get("tvl", 0))
-                    if isinstance(amount, (int, float)):
-                        return max(0.0, float(amount))
-    try:
-        return max(0.0, float(row.get("tvl") or 0))
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _fetch_defillama_adapter(module):
-    module = str(module or "").strip().replace("\\", "/")
-    module = re.sub(r"^projects/", "", module)
-    module = re.sub(r"^/+", "", module)
-    if not module or ".." in Path(module).parts or module.startswith("http"):
-        raise RuntimeError("Protocol has no safe DefiLlama adapter path")
-    paths = [module] if module.endswith((".js", ".ts")) else [module + "/index.js", module + ".js", module + "/index.ts"]
-    last_error = "adapter source not found"
-    for path in dict.fromkeys(paths):
-        for branch in ("main", "master"):
-            url = f"https://raw.githubusercontent.com/DefiLlama/DefiLlama-Adapters/{branch}/projects/{path}"
-            try:
-                response = requests.get(url, timeout=20)
-                if response.status_code == 404:
-                    continue
-                response.raise_for_status()
-                if response.text.strip():
-                    return response.text, path
-                last_error = "adapter source file was empty"
-            except requests.RequestException as exc:
-                last_error = str(exc)[:250]
-    raise RuntimeError(f"Could not fetch public adapter source ({last_error})")
-
-
-def _balanced_js_value(source, start):
-    pairs = {"{": "}", "[": "]", "(": ")"}
-    if start >= len(source) or source[start] not in pairs:
-        return ""
-    stack = [pairs[source[start]]]
-    quote = None
-    escaped = False
-    line_comment = False
-    block_comment = False
-    i = start + 1
-    while i < len(source):
-        char = source[i]
-        nxt = source[i + 1] if i + 1 < len(source) else ""
-        if line_comment:
-            if char == "\n":
-                line_comment = False
-            i += 1
-            continue
-        if block_comment:
-            if char == "*" and nxt == "/":
-                block_comment = False
-                i += 2
-                continue
-            i += 1
-            continue
-        if quote:
-            if escaped:
-                escaped = False
-            elif char == chr(92):
-                escaped = True
-            elif char == quote:
-                quote = None
-            i += 1
-            continue
-        if char == "/" and nxt == "/":
-            line_comment = True
-            i += 2
-            continue
-        if char == "/" and nxt == "*":
-            block_comment = True
-            i += 2
-            continue
-        if char in ("'", '"', chr(96)):
-            quote = char
-        elif char in pairs:
-            stack.append(pairs[char])
-        elif char in ("}", "]", ")"):
-            if not stack or char != stack[-1]:
-                return ""
-            stack.pop()
-            if not stack:
-                return source[start:i + 1]
-        i += 1
-    return ""
-
-
-def _adapter_chain_section(source, network):
-    aliases = _ADAPTER_CHAIN_KEYS[network]
-    alias_pattern = "|".join(re.escape(alias) for alias in aliases)
-    pattern = re.compile(r"(?im)^[ \t]*['\"]?(?:" + alias_pattern + r")['\"]?\s*:")
-    for match in pattern.finditer(source):
-        start = match.end()
-        while start < len(source) and source[start].isspace():
-            start += 1
-        if start < len(source) and source[start] in ("{", "["):
-            value = _balanced_js_value(source, start)
-            if value:
-                return value, source.count("\n", 0, start) + 1, source[start] == "["
-    return "", 0, False
-
-
-def _extract_adapter_addresses(source, network, max_addresses=3):
-    section, start_line, direct_array = _adapter_chain_section(source, network)
-    if not section:
-        return []
-    matches = list(_HEX_ADDRESS.finditer(section))
-    if not matches:
-        return []
-    direct_array_allowed = direct_array and len(matches) <= 5
-    candidates = []
-    seen = set()
-    positive_names = ("poolData", "lending", "borrow", "deposit", "vault", "market", "staking",
-        "strategy", "masterChef", "chef", "comptroller", "controller", "addressProvider",
-        "factory", "pair", "router", "gauge", "rewardPool", "collateral", "proxy", "wrapper",
-        "exchange", "contractAddress", "vaults", "markets", "poolAddress", "manager", "oracle",
-        "implementation")
-    for hit in matches:
-        address = hit.group(0)
-        if address.lower() in seen:
-            continue
-        # Role hints should come from the declaration before the literal; looking forward can
-        # accidentally see a later blacklist/token list and misclassify this address.
-        context = section[max(0, hit.start() - 180):hit.start()]
-        if _ADAPTER_NEGATIVE_ROLE.search(context):
-            continue
-        roles = [name for name in positive_names if re.search(re.escape(name), context, re.I)]
-        if roles:
-            role, confidence = roles[0], "contextual_adapter_label"
-        elif direct_array_allowed:
-            role, confidence = "chain_scoped_adapter_address_role_unconfirmed", "low_role_confidence"
-        else:
-            continue
-        seen.add(address.lower())
-        candidates.append({"address": address, "role": role, "confidence": confidence,
-            "adapter_line": start_line + section.count("\n", 0, hit.start())})
-        if len(candidates) >= max_addresses:
-            break
-    return candidates
-
-
-def discover_protocol_contracts(network="eth", limit=40, protocol_limit=30,
-                                min_tvl=1000000, addresses_per_protocol=3):
-    if network not in _ADAPTER_CHAIN_KEYS:
-        raise ValueError("Unsupported network for protocol discovery")
-    if limit < 1 or protocol_limit < 1 or addresses_per_protocol < 1 or min_tvl < 0:
-        raise ValueError("Protocol discovery limits/threshold are invalid")
-    protocols = get_json(f"{DEFILLAMA}/protocols")
-    if not isinstance(protocols, list):
-        raise RuntimeError("DeFiLlama returned an unexpected protocol list")
-    chain_names = {name.lower() for name in _DEFILLAMA_CHAIN_NAMES[network]}
-    eligible = []
-    for row in protocols:
-        if not isinstance(row, dict):
-            continue
-        if not any(str(chain).lower() in chain_names for chain in (row.get("chains") or [])):
-            continue
-        category = str(row.get("category") or "")
-        if not any(hint in category.lower() for hint in _PROTOCOL_CATEGORY_HINTS):
-            continue
-        slug = row.get("slug")
-        module = row.get("module")
-        if not slug and module:
-            module_hint = re.sub(r"^projects/", "", str(module).strip("/"))
-            slug = module_hint.split("/", 1)[0]
-        if not slug and not module:
-            # Do not guess an API slug from a display name; the adapter lookup
-            # must be traceable to the public protocol metadata.
-            continue
-        tvl = _defillama_chain_tvl(row, network)
-        if tvl >= min_tvl:
-            eligible.append((tvl, row, str(slug or module)))
-    eligible.sort(key=lambda item: item[0], reverse=True)
-    shortlisted = eligible[:min(protocol_limit, 100)]
-    output = []
-    seen_addresses = set()
-    for tvl, row, slug in shortlisted:
-        name = str(row.get("name") or slug)
-        try:
-            module = row.get("module")
-            if not module:
-                detail = get_json(f"{DEFILLAMA}/protocol/{slug}")
-                module = detail.get("module") if isinstance(detail, dict) else None
-            if not module:
-                raise RuntimeError("Protocol metadata did not expose a DefiLlama adapter module")
-            source, adapter_path = _fetch_defillama_adapter(module)
-            addresses = _extract_adapter_addresses(source, network, addresses_per_protocol)
-        except (requests.RequestException, RuntimeError, ValueError, KeyError) as exc:
-            print(f"[protocol discovery] {name}: skipped ({str(exc)[:180]})")
-            time.sleep(0.2)
-            continue
-        added = 0
-        for candidate in addresses:
-            address = candidate["address"]
-            identity = (network, address.lower())
-            if identity in seen_addresses:
-                continue
-            seen_addresses.add(identity)
-            output.append({
-                "network": network, "address": address, "base_token": address,
-                "name": f"{name} — {candidate['role']}", "protocol_name": name,
-                "protocol_slug": slug, "protocol_category": row.get("category"),
-                "target_kind": "protocol_contract", "reserve_usd": str(round(tvl, 2)),
-                "tvl_usd": round(tvl, 2), "volume_24h_usd": "0",
-                "adapter_path": adapter_path, "candidate_role": candidate["role"],
-                "candidate_confidence": candidate["confidence"], "adapter_line": candidate["adapter_line"],
-                "candidate_evidence": "Address literal in the protocol's chain-specific public DeFiLlama adapter; confirm contract identity from verified source.",
-            })
-            added += 1
-            if len(output) >= limit:
-                return output
-        print(f"[protocol discovery] {name}: {added} candidate address(es) on {network}")
-        time.sleep(0.2)
-    return output
-
 def main():
     parser = argparse.ArgumentParser(description="Read-only GeckoTerminal contract screening CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1370,14 +1104,6 @@ def main():
     d.add_argument("--pages", type=int, default=1)
     d.add_argument("--limit", type=int, default=20)
     d.add_argument("--out", default="discovery.json")
-    p = sub.add_parser("discover-protocols", help="Find candidate DeFi protocol contracts from public DeFiLlama adapter hints")
-    p.add_argument("--network", choices=sorted(_ADAPTER_CHAIN_KEYS), default="eth")
-    p.add_argument("--min-tvl", type=float, default=1000000, help="Minimum protocol TVL in USD")
-    p.add_argument("--protocol-limit", type=int, default=30, help="Maximum protocol adapters to inspect")
-    p.add_argument("--addresses-per-protocol", type=int, default=3, help="Maximum candidates extracted per adapter")
-    p.add_argument("--limit", type=int, default=40, help="Maximum contract address candidates to write")
-    p.add_argument("--out", default="protocol-discovery.json")
-
     s = sub.add_parser("scan", help="Static scan discovered verified contract sources; no live-network testing")
     s.add_argument("--input", default="discovery.json", help="JSON discovery output from a discovery command")
     s.add_argument("--min-liquidity", type=float, default=10000, help="Minimum pool reserve USD or protocol TVL USD")
@@ -1389,14 +1115,6 @@ def main():
     args = parser.parse_args()
     if args.command == "discover":
         result = discover(args.network, args.pages, args.limit)
-    elif args.command == "discover-protocols":
-        if args.min_tvl < 0 or args.limit < 1 or args.protocol_limit < 1 or args.addresses_per_protocol < 1:
-            parser.error("Invalid protocol discovery threshold or limit")
-        result = discover_protocol_contracts(
-            network=args.network, limit=args.limit, protocol_limit=args.protocol_limit,
-            min_tvl=args.min_tvl, addresses_per_protocol=args.addresses_per_protocol,
-        )
-        print(f"Wrote {len(result)} protocol contract candidate(s) to {args.out}")
     else:
         if args.limit < 1 or not 0 <= args.min_score <= 100:
             parser.error("Invalid --limit or --min-score")
@@ -1414,13 +1132,15 @@ def main():
             addr = item.get("base_token") or item.get("address", "")
             if net not in CHAIN_IDS or not isinstance(addr, str) or not ADDRESS.fullmatch(addr):
                 continue
+            target_kind = item.get("target_kind")
             try:
-                liquidity = float(item.get("reserve_usd") or item.get("tvl_usd") or 0)
+                liquidity = float(item.get("reserve_usd") or 0)
                 volume = float(item.get("volume_24h_usd") or 0)
             except (ValueError, TypeError):
                 continue
-            if not (liquidity >= args.min_liquidity and volume >= args.min_volume):
-                continue
+            if target_kind not in ("verified_contract", "chain_deployment"):
+                if not (liquidity >= args.min_liquidity and volume >= args.min_volume):
+                    continue
             identity = (net, addr.lower())
             if identity in seen:
                 continue
