@@ -117,16 +117,23 @@ def _parse_datetime(value):
     return parsed.astimezone(timezone.utc)
 
 
-def discover_verified(network="eth", limit=100):
-    """Read Sourcify's newest-first verified-contract feed."""
+def discover_verified(network="eth", limit=200, after_match_id=None):
+    """Read one page from Sourcify's newest-first verified-contract feed.
+
+    Sourcify's afterMatchId cursor lets callers continue through older records
+    without imposing an overall candidate-count ceiling.
+    """
     if network not in CHAIN_IDS:
         raise ValueError(f"Unsupported network: {network}")
     if limit < 1:
         raise ValueError("limit must be positive")
     chain_id = CHAIN_IDS[network]
+    params = {"limit": min(limit, 200), "sort": "desc"}
+    if after_match_id not in (None, ""):
+        params["afterMatchId"] = str(after_match_id)
     payload = get_json(
         f"{SOURCIFY}/contracts/{chain_id}",
-        params={"limit": min(limit, 200), "sort": "desc"},
+        params=params,
     )
     rows = payload.get("results") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
@@ -154,14 +161,11 @@ def discover_verified(network="eth", limit=100):
             "creation_match": row.get("creationMatch"),
             "runtime_match": row.get("runtimeMatch"),
             "verified_at": row.get("verifiedAt"),
-            "sourcify_match_id": row.get("matchId"),
+            "sourcify_match_id": str(row.get("matchId") or ""),
             "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
             "source_url": f"https://repo.sourcify.dev/contracts/full_match/{chain_id}/{address}/",
         })
-        if len(output) >= limit:
-            break
     return output
-
 
 def github_headers():
     headers = {
