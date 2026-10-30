@@ -1587,7 +1587,25 @@ def estimate_asset_exposure(network, address, entry, source, paths, root):
             "provider": "Etherscan balance + GeckoTerminal wrapped-native price",
         })
 
-        for token_address in _asset_addresses_from_source(source, paths, root, address, max_addresses=5):
+        token_addresses = _asset_addresses_from_source(source, paths, root, address, max_addresses=5)
+        # Also discover assets used by the contract from its own ERC-20 transfer history.
+        # This catches protocols whose token addresses are constructor/initializer state,
+        # rather than hard-coded constants in verified source.
+        transfer_rows = _etherscan_result(network, {
+            "module": "account", "action": "tokentx", "address": address,
+            "page": 1, "offset": 20, "sort": "desc",
+        })
+        seen_tokens = {x.lower() for x in token_addresses}
+        for row in transfer_rows if isinstance(transfer_rows, list) else []:
+            token_address = row.get("contractAddress") or row.get("contractaddress")
+            if isinstance(token_address, str) and ADDRESS.fullmatch(token_address):
+                if token_address.lower() not in seen_tokens and token_address.lower() != address.lower():
+                    token_addresses.append(token_address)
+                    seen_tokens.add(token_address.lower())
+            if len(token_addresses) >= 5:
+                break
+
+        for token_address in token_addresses[:5]:
             info = _etherscan_token_info(network, token_address)
             decimals = info.get("decimals")
             price = info.get("price_usd") or _gecko_token_price(network, token_address)
@@ -2210,7 +2228,6 @@ def run_deepseek_hunter_agent(state, max_steps=120):
             "messages": messages,
             "tools": AUTOPILOT_TOOL_SCHEMAS,
             "tool_choice": "required",
-            "parallel_tool_calls": False,
             "thinking": {"type": "disabled"},
             "temperature": 0.1,
             "max_tokens": 1300,
