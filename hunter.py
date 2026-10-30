@@ -1669,21 +1669,32 @@ def estimate_asset_exposure(network, address, entry, source, paths, root):
     direct_native_usd = 0.0
     direct_token_usd = 0.0
     checks = []
-    if market_liquidity < 500.0:
+    direct_balance_data_complete = True
+    balance_lookup_attempted = market_liquidity < 500.0
+    if balance_lookup_attempted:
         wrapped = WRAPPED_NATIVE_TOKENS.get(network)
         native_price = _gecko_token_price(network, wrapped) if wrapped else 0.0
         native_balance = _etherscan_result(network, {
             "module": "account", "action": "balance", "address": address, "tag": "latest",
         })
-        try:
-            native_amount = int(native_balance or 0) / 1e18
-        except (TypeError, ValueError):
+        if native_balance is None:
             native_amount = 0.0
+            direct_balance_data_complete = False
+        else:
+            try:
+                native_amount = int(native_balance) / 1e18
+            except (TypeError, ValueError):
+                native_amount = 0.0
+                direct_balance_data_complete = False
         if native_price > 0:
             direct_native_usd = native_amount * native_price
+        elif native_amount > 0:
+            direct_balance_data_complete = False
         checks.append({
             "asset": "native coin", "balance": native_amount, "price_usd": native_price,
             "value_usd": direct_native_usd,
+            "lookup_status": "available" if native_balance is not None else "unavailable",
+            "price_status": "available" if native_price > 0 else "unavailable",
             "provider": "Etherscan balance + GeckoTerminal wrapped-native price",
         })
 
@@ -1695,6 +1706,8 @@ def estimate_asset_exposure(network, address, entry, source, paths, root):
             "module": "account", "action": "tokentx", "address": address,
             "page": 1, "offset": 20, "sort": "desc",
         })
+        if transfer_rows is None:
+            direct_balance_data_complete = False
         seen_tokens = {x.lower() for x in token_addresses}
         for row in transfer_rows if isinstance(transfer_rows, list) else []:
             token_address = row.get("contractAddress") or row.get("contractaddress")
@@ -1714,16 +1727,21 @@ def estimate_asset_exposure(network, address, entry, source, paths, root):
                 "contractaddress": token_address, "address": address, "tag": "latest",
             })
             try:
-                if decimals is None:
-                    raise ValueError("token decimals unavailable")
-                amount = int(raw_balance or 0) / (10 ** decimals)
+                if raw_balance is None or decimals is None:
+                    raise ValueError("token balance or decimals unavailable")
+                amount = int(raw_balance) / (10 ** decimals)
+                if price <= 0 and amount > 0:
+                    raise ValueError("token price unavailable")
                 value = amount * price if price > 0 else 0.0
             except (TypeError, ValueError, OverflowError):
                 amount, value = 0.0, 0.0
+                direct_balance_data_complete = False
             direct_token_usd += value
             checks.append({
                 "asset_contract": token_address, "balance": amount, "decimals": decimals,
                 "price_usd": price, "value_usd": value,
+                "lookup_status": "available" if raw_balance is not None else "unavailable",
+                "price_status": "available" if price > 0 else "unavailable",
                 "provider": "Etherscan tokenbalance/tokeninfo with GeckoTerminal price fallback",
             })
             time.sleep(0.20)
@@ -1742,13 +1760,20 @@ def estimate_asset_exposure(network, address, entry, source, paths, root):
             "not protocol TVL and not a claim that pool assets are controlled by this contract"
         ),
         "balance_checks": checks[:6],
-        "direct_balances_checked": market_liquidity < 500.0,
+        "direct_balances_checked": balance_lookup_attempted,
+        "direct_balance_data_complete": (
+            direct_balance_data_complete if balance_lookup_attempted else None
+        ),
+        "exposure_data_note": (
+            "Direct balances could not all be valued; an apparent sub-$500 estimate is not proof of an empty contract."
+            if balance_lookup_attempted and not direct_balance_data_complete else None
+        ),
         "value_basis": (
             "associated market pool/token liquidity" if market_liquidity >= direct_custody_usd
             else "direct contract-held native/ERC20 balances"
         ),
         "passed_500_usd_threshold": economic_exposure >= 500.0,
-        "balance_lookup_attempted": market_liquidity < 500.0,
+        "balance_lookup_attempted": balance_lookup_attempted,
     }
 
 
