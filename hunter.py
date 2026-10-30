@@ -1287,6 +1287,21 @@ def inspect_unprivileged_surface(source_files, findings=None):
                 "params": _parameter_names(params), "body": body,
                 "privileged": privileged_modifier or privileged_body,
             })
+        # Solidity fallback/receive entrypoints are externally callable too.
+        fallback_pattern = re.compile(r"\b(fallback|receive)\s*\(\s*\)\s*([^{;]*)\{", flags=re.S)
+        for match in fallback_pattern.finditer(code):
+            opening = match.end() - 1
+            closing = _matching_brace(code, opening)
+            if closing is None:
+                continue
+            functions.append({
+                "name": match.group(1),
+                "visibility": "external",
+                "modifiers": [],
+                "params": [],
+                "body": code[opening + 1:closing],
+                "privileged": False,
+            })
 
     operation_pattern = re.compile(
         r"(\.call\b|\.delegatecall\b|\.staticcall\b|functionCall\s*\(|functionDelegateCall\s*\(|"
@@ -1442,16 +1457,23 @@ def _etherscan_result(network, params):
 
 
 @lru_cache(maxsize=32)
-def _gecko_token_price(network, token_address):
+def _gecko_token_stats(network, token_address):
     try:
         payload = get_json(
             f"{GECKO}/networks/{network}/tokens/{token_address}",
             headers={"accept": "application/json"},
         )
         attrs = (payload.get("data") or {}).get("attributes") or {}
-        return _safe_float(attrs.get("price_usd"))
+        return {
+            "price_usd": _safe_float(attrs.get("price_usd")),
+            "total_reserve_usd": _safe_float(attrs.get("total_reserve_in_usd")),
+        }
     except (requests.RequestException, RuntimeError, ValueError, TypeError):
-        return 0.0
+        return {"price_usd": 0.0, "total_reserve_usd": 0.0}
+
+
+def _gecko_token_price(network, token_address):
+    return _gecko_token_stats(network, token_address).get("price_usd", 0.0)
 
 
 @lru_cache(maxsize=64)
@@ -1526,6 +1548,12 @@ def estimate_asset_exposure(network, address, entry, source, paths, root):
     market_liquidity = _safe_float(
         entry.get("total_reserve_usd") or entry.get("reserve_usd") or entry.get("pool_liquidity_usd")
     )
+    token_address = entry.get("base_token") or address
+    if market_liquidity < 500.0 and ADDRESS.fullmatch(str(token_address)):
+        market_liquidity = max(
+            market_liquidity,
+            _gecko_token_stats(network, str(token_address)).get("total_reserve_usd", 0.0),
+        )
     direct_native_usd = 0.0
     direct_token_usd = 0.0
     checks = []
