@@ -2668,7 +2668,7 @@ def run_deepseek_hunter_agent(state, max_steps=0):
             f"{max(0.0, state['analysis_budget_usd'] - state['analysis_cost_today_usd']):.6f} USD "
             f"of {state['analysis_budget_usd']:.6f} (0 means unlimited). "
             "Discover first, then screen repeatedly. Each discovery call advances the source cursors. If a batch is empty but more pages remain, discover again. Do not stop at a candidate count; continue until "
-            "the search-token budget is spent or candidates are exhausted. Reserve full analysis for worthy targets."
+            "the search-token budget is spent or both source feeds are exhausted. Reserve full analysis for worthy targets."
         )},
     ]
     step = 0
