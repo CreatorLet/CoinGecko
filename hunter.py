@@ -1586,7 +1586,7 @@ def inspect_unprivileged_surface(source_files, findings=None):
         f.get("impact") in ("High", "Medium") and not f.get("triage_note")
         for f in findings
     )
-    if not unprivileged and (has_source_ops or has_material_finding):
+    if not public_functions and (has_source_ops or has_material_finding):
         unprivileged.append({
             "function": "unresolved_external_call_graph",
             "visibility": "unknown",
