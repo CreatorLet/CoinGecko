@@ -1347,6 +1347,8 @@ def inspect_unprivileged_surface(source_files, findings=None):
                 "modifiers": modifiers, "params": _parameter_names(params),
                 "body": body, "privileged": privileged,
                 "interface_variables": interface_variables,
+                "source_path": item.get("path"),
+                "start_line": code.count("\n", 0, match.start()) + 1,
             })
 
         for match in fallback_pattern.finditer(code):
@@ -1358,6 +1360,8 @@ def inspect_unprivileged_surface(source_files, findings=None):
                 "modifiers": [], "params": [],
                 "body": code[match.end():closing], "privileged": False,
                 "interface_variables": interface_variables,
+                "source_path": item.get("path"),
+                "start_line": code.count("\n", 0, match.start()) + 1,
             })
 
     operation_pattern = re.compile(
@@ -1444,6 +1448,8 @@ def inspect_unprivileged_surface(source_files, findings=None):
         ))
         summary = {
             "function": name, "visibility": fn["visibility"],
+            "source_path": fn.get("source_path"),
+            "start_line": fn.get("start_line"),
             "modifiers": fn["modifiers"],
             "privileged_gate_detected": fn["privileged"],
             "external_asset_operation": has_op,
@@ -1736,6 +1742,11 @@ def estimate_asset_exposure(network, address, entry, source, paths, root):
             "not protocol TVL and not a claim that pool assets are controlled by this contract"
         ),
         "balance_checks": checks[:6],
+        "direct_balances_checked": market_liquidity < 500.0,
+        "value_basis": (
+            "associated market pool/token liquidity" if market_liquidity >= direct_custody_usd
+            else "direct contract-held native/ERC20 balances"
+        ),
         "passed_500_usd_threshold": economic_exposure >= 500.0,
         "balance_lookup_attempted": market_liquidity < 500.0,
     }
@@ -1752,6 +1763,8 @@ def candidate_brief(result):
         "economic_exposure_usd_estimate": exposure.get("economic_exposure_usd_estimate"),
         "market_pool_liquidity_usd": exposure.get("market_pool_liquidity_usd"),
         "direct_custody_usd_estimate": exposure.get("direct_custody_usd_estimate"),
+        "direct_balances_checked": exposure.get("direct_balances_checked"),
+        "exposure_basis": exposure.get("value_basis"),
         "review_gate": result.get("review_gate"),
         "slither_score": result.get("score"), "source_signal_score": result.get("source_signal_score"),
         "top_findings": [
@@ -1760,8 +1773,9 @@ def candidate_brief(result):
             for f in (result.get("findings") or [])[:12]
             if f.get("impact") in ("High", "Medium", "Low")
         ],
-        "unprivileged_functions": (surface.get("unprivileged_asset_functions") or [])[:8],
-        "intermediary_evidence": (surface.get("intermediary_functions") or [])[:5],
+        "unprivileged_functions": (surface.get("unprivileged_asset_functions") or [])[:16],
+        "public_external_functions": (surface.get("public_external_functions") or [])[:20],
+        "intermediary_evidence": (surface.get("intermediary_functions") or [])[:8],
         "transparency_flags": result.get("transparency_flags") or [],
     }
 
