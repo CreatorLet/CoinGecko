@@ -1790,6 +1790,8 @@ def candidate_brief(result):
         "direct_custody_usd_estimate": exposure.get("direct_custody_usd_estimate"),
         "direct_balances_checked": exposure.get("direct_balances_checked"),
         "exposure_basis": exposure.get("value_basis"),
+        "exposure_data_note": exposure.get("exposure_data_note"),
+        "direct_balance_data_complete": exposure.get("direct_balance_data_complete"),
         "review_gate": result.get("review_gate"),
         "slither_score": result.get("score"), "source_signal_score": result.get("source_signal_score"),
         "top_findings": [
