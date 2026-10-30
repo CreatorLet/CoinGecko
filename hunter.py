@@ -1809,7 +1809,21 @@ def scan_target(entry, ai=False, min_score=30, min_exposure_usd=500.0, include_s
             if include_source:
                 remaining = 70000
                 bundle = []
-                for item in sorted(source_files, key=lambda x: len(x["content"])):
+                def _agent_file_priority(item):
+                    path_text = str(item["path"]).lower()
+                    code_text = item["content"].lower()
+                    dependency_penalty = 100000 if any(
+                        part in path_text.split("/")
+                        for part in ("lib", "libs", "vendor", "vendors", "node_modules", "@openzeppelin", "test", "tests")
+                    ) else 0
+                    operation_hits = len(re.findall(
+                        r"(safeTransfer|transferFrom|\.call\b|delegatecall|raw_call|balanceOf|"
+                        r"totalAssets|liabilit|collateral|withdraw|deposit|borrow|repay|claim|settle)",
+                        code_text,
+                    ))
+                    public_hits = len(re.findall(r"\b(public|external)\b", code_text))
+                    return operation_hits * 20 + public_hits - dependency_penalty
+                for item in sorted(source_files, key=_agent_file_priority, reverse=True):
                     if remaining <= 0:
                         break
                     content = item["content"][:remaining]
