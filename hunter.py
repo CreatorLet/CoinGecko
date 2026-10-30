@@ -2795,8 +2795,13 @@ def run_autopilot(args):
         checkpoint = {}
 
     state = {
-        "network": args.network, "pages": args.pages, "limit": args.limit,
-        "verified_limit": args.verified_limit, "include_verified": args.include_verified,
+                "network": args.network, "include_verified": args.include_verified,
+                "gecko_page_next": int(checkpoint.get("gecko_page_next") or 1),
+                "gecko_pass_complete": bool(checkpoint.get("gecko_pass_complete")),
+                "sourcify_after_match_id": checkpoint.get("sourcify_after_match_id"),
+                "sourcify_pass_complete": bool(checkpoint.get("sourcify_pass_complete")) or not args.include_verified,
+                "max_candidates": args.max_candidates, "max_screened": args.max_screened,
+                "minimum_exposure_usd": args.min_exposure_usd,
         "max_candidates": args.max_candidates, "max_screened": args.max_screened,
         "minimum_exposure_usd": args.min_exposure_usd,
         "review_limit": args.max_ai_reviews,
@@ -2835,11 +2840,17 @@ def run_autopilot(args):
         "checkpoint_path": checkpoint_path,
         "cycles_completed": int(checkpoint.get("cycles_completed") or 0),
         "finished": False, "finish_reason": None, "discovery_done": False,
-        "candidates": [], "next_index": 0, "cycle_screened": 0, "current": None,
+        "candidates": list(checkpoint.get("pending_candidates") or []), "next_index": 0, "cycle_screened": 0, "cycle_candidate_count": 0, "discovery_batches": 0, "current": None,
     }
     # If the process died while a candidate was waiting for DeepSeek's
     # decision, put it back in the queue instead of silently losing it.
     interrupted_address = checkpoint.get("current_address")
+    resume_candidate = checkpoint.get("current_candidate")
+    if isinstance(resume_candidate, dict) and resume_candidate.get("address"):
+        address_key = str(resume_candidate["address"]).lower()
+        state["processed_addresses"].discard((args.network, address_key))
+        if not any(str(row.get("address", "")).lower() == address_key for row in state["candidates"]):
+            state["candidates"].insert(0, resume_candidate)
     if interrupted_address:
         state["processed_addresses"].discard((args.network, str(interrupted_address).lower()))
         print(f"[Hunter autopilot] Resuming interrupted candidate {interrupted_address} from screening.")
@@ -2903,13 +2914,36 @@ def run_autopilot(args):
             )
             time.sleep(wait_seconds)
             continue
+        # Revisit the newest feed pages only after a full source pass; otherwise resume cursors.
+        if state.get("gecko_pass_complete"):
+            state["gecko_page_next"] = 1
+            state["gecko_pass_complete"] = False
+        if state.get("sourcify_pass_complete") and state.get("include_verified"):
+            state["sourcify_after_match_id"] = None
+            state["sourcify_pass_complete"] = False
+        # Retain queued-but-unprocessed candidates between continuous cycles.
+        pending = list((state.get("candidates") or [])[state.get("next_index", 0):])
+        current = state.get("current")
+        if current and current.get("status") == "awaiting_agent_decision":
+            identity = (state["network"], str(current.get("address", "")).lower())
+            state["processed_addresses"].discard(identity)
+            resumable = {key: current.get(key) for key in (
+                "network", "address", "target_kind", "discovery_source", "name",
+                "pool", "created_at", "verified_at", "reserve_usd", "volume_24h_usd",
+            )}
+            if resumable.get("address") and not any(
+                str(row.get("address", "")).lower() == str(resumable["address"]).lower()
+                for row in pending
+            ):
+                pending.insert(0, resumable)
+        state["candidates"] = pending
+        state["next_index"] = 0
+        state["cycle_candidate_count"] = len(pending)
+        state["cycle_screened"] = 0
+        state["current"] = None
         state["finished"] = False
         state["finish_reason"] = None
         state["discovery_done"] = False
-        state["candidates"] = []
-        state["next_index"] = 0
-        state["cycle_screened"] = 0
-        state["current"] = None
         print(
             f"[Hunter autopilot] Cycle {state['cycles_completed'] + 1}: "
             f"network={state['network']} minimum_exposure_usd={state['minimum_exposure_usd']:.0f}"
