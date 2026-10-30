@@ -225,6 +225,56 @@ class HunterAutopilotGateTests(unittest.TestCase):
         self.assertFalse(candidate_review_gate(below_threshold, privileged, 500)["eligible"])
 
 
+    def test_typed_interface_intermediary_with_unusual_names(self):
+        source = [{
+            "path": "contracts/Router.sol",
+            "content": """
+                interface IExecutor {
+                    function route(bytes calldata p) external;
+                }
+                contract Router {
+                    IExecutor processor;
+                    function q7(bytes calldata p) external {
+                        _forward(p);
+                    }
+                    function _forward(bytes calldata raw) internal {
+                        processor.route(raw);
+                    }
+                }
+            """,
+        }]
+        surface = inspect_unprivileged_surface(source, [])
+        self.assertTrue(surface["unprivileged_candidate"])
+        self.assertTrue(surface["intermediary_candidate"])
+        self.assertIn(
+            "q7",
+            [row["function"] for row in surface["intermediary_functions"]],
+        )
+
+    def test_custom_role_modifier_is_recognized_as_privileged(self):
+        source = [{
+            "path": "contracts/Vault.sol",
+            "content": """
+                contract Vault {
+                    mapping(address => bool) private signers;
+                    modifier signerOnly() {
+                        require(signers[msg.sender]);
+                        _;
+                    }
+                    function q9(address target) external signerOnly {
+                        (bool ok,) = target.call("");
+                        require(ok);
+                    }
+                }
+            """,
+        }]
+        surface = inspect_unprivileged_surface(source, [])
+        # The unfamiliar modifier is deliberately not assumed to be privileged
+        # by name. It stays visible for DeepSeek's source-level access check.
+        self.assertTrue(surface["unprivileged_candidate"])
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
