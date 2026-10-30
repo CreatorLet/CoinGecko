@@ -15,7 +15,9 @@ Hunter discovers new GeckoTerminal pools and newly verified Sourcify contracts, 
 
 Admin/owner/governance-only powers do not qualify on their own. Unusual function names are not required: Hunter follows internal helper calls and recognises typed interface calls as well as raw `.call` patterns. DeepSeek decides whether a surfaced path is genuinely attacker-controlled or merely calls a fixed trusted component.
 
-The exposure estimate uses the maximum of associated token/pool liquidity and directly observed contract-held balances; it does **not** add them together. Pool liquidity is an economic-size proxy, not proof that the contract owns or controls those funds. The report marks whether direct balances were checked. A missing price or unavailable explorer response is not proof of a zero balance.
+The exposure estimate uses the maximum of associated token/pool liquidity and directly observed contract-held balances; it does **not** add them together. Pool liquidity is an economic-size proxy, not proof that the contract owns or controls those funds. The report shows whether direct balances were checked and whether the valuation lookups were complete. An unavailable balance/price lookup is not treated as proof of an empty contract.
+
+For a candidate below $500, a public function reaching a low-level or nonstandard external call is only a *possible* intermediary. DeepSeek must inspect whether an ordinary caller can influence the destination, payload, callback, or transaction being processed. Calls to fixed trusted tokens/oracles/protocols do not automatically deserve a full review.
 
 DeepSeek operates Hunter through five allowlisted commands: discover, screen the next candidate, deep-review the current candidate, skip it, and finish. It cannot run arbitrary shell commands. Each review is saved to the report; a separate checkpoint tracks processed addresses and review usage. If the process stops while a candidate awaits a decision, the next run re-screens that address.
 
@@ -61,7 +63,7 @@ python hunter.py discover --network bsc --limit 20 --out discovery.json
 python hunter.py scan --input discovery.json --min-liquidity 10000 --limit 5 --out report.json
 ```
 
-The `--limit` counts selected candidate tokens, not necessarily successful completed Slither scans. Filtering is done first, with highest-liquidity pools first; a low-liquidity or unverified contract is skipped or reported as an error. The scanner operates on the discovered **base token contract**, not automatically on the project's vault or DEX pool.
+The `--limit` counts selected candidate tokens, not necessarily successful completed Slither scans. Filtering is done first, with highest-liquidity pools first; a low-liquidity or unverified contract is skipped or reported as an error. The scanner operates on the discovered **base token contract**, not automatically on the project's vault or DEX pool. The autopilot combines these pool-token entries with recently verified contracts and performs the same value/access checks before DeepSeek.
 
 
 ## Frontier discovery: freshness-first sources
@@ -89,7 +91,7 @@ This flag requires `DEEPSEEK_API_KEY` and can consume credits. It expands AI rev
 
 The audit output keeps current/upcoming opportunities separate from unverified project directories and ended contests. Immunefi records include recent smart-contract scope additions where the public feed exposes them. Confirm scope, timing, eligibility and rules on the official platform before conducting research.
 
-These feeds are incomplete by design: Sourcify verification time is not necessarily deployment time; block scans miss internal factory CREATE/CREATE2 events; and a WebSocket provider does not expose a global mempool. The scanner performs passive source analysis and read-only data collection only.
+These feeds are incomplete by design: Sourcify verification time is not necessarily deployment time; block scans miss internal factory CREATE/CREATE2 events; and a WebSocket provider does not expose a global mempool. The scanner performs passive source analysis and read-only data collection only. It sends no transactions and performs no live exploit testing.
 
 ## Step 3: Optional gated DeepSeek review
 
@@ -206,11 +208,11 @@ The NodeReal creation context also records the creation transaction's `to` field
 
 This hunter is prioritizing potential **unprivileged code-level vulnerabilities**, not owner-controlled token behavior or presumed rug risks. It therefore:
 - skips a contract when neither Etherscan nor Sourcify can provide verified source (`skipped_low_transparency`);
-- skips proxy targets whose implementation isn't handled by this version;
+- follows one verified proxy implementation; nested/unresolved proxy implementations are skipped rather than guessed at;
 - records GoPlus hidden-owner / non-open-source flags as transparency caveats;
 - records GoPlus flags as context but does not treat token-owner controls as unprivileged vulnerabilities;
 - estimates economic exposure using pool/token liquidity and, when needed, read-only direct balance checks;
-- requires a public/unprivileged code path plus the $500 value floor or the intermediary exception before DeepSeek is called.
+- requires a public/unprivileged code path plus the $500 value floor or a possible intermediary exception before a candidate reaches DeepSeek; DeepSeek then decides whether a below-threshold external call is genuinely interceptable.
 
 These exclusions conserve research time; **they do not establish that an opaque or skipped contract is secure or attack-proof**. If no related deployments are found, that stage ends for that token and the program proceeds to static analysis and then the next discovery candidate.
 
