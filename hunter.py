@@ -992,7 +992,7 @@ def deepseek_review(
     cache_key = {
         "model": model, "messages": messages, "max_tokens": max_tokens,
         "continuation_limit": int(continuation_limit),
-        "max_cost_usd": max_cost_usd, "cache_version": 2,
+        "cache_version": 2,
     }
     cache_hit, cached_result = cache_get("deepseek_reviews", cache_key, 30 * 86400)
     if cache_hit and isinstance(cached_result, dict):
@@ -1088,7 +1088,7 @@ def deepseek_review(
             if not cost_tracking_complete else None
         ),
     }
-    if cost_tracking_complete:
+    if cost_tracking_complete and not budget_stopped and not output["truncated"]:
         cache_set("deepseek_reviews", cache_key, output)
     return output
 
@@ -2536,6 +2536,35 @@ def _execute_autopilot_tool(name, arguments, state):
         _save_autopilot_state(state)
         return {"status": "skipped", "address": current.get("address"), "reason": reason}
     if name == "hunter_finish":
+        current = state.get("current")
+        unresolved_current = bool(
+            current and current.get("status") not in ("reviewed", "agent_skipped")
+        )
+        has_candidates = state.get("next_index", 0) < len(state.get("candidates") or [])
+        explicit_screen_cap = bool(
+            state.get("max_screened", 0) > 0
+            and state.get("cycle_screened", 0) >= state["max_screened"]
+        )
+        explicit_daily_screen_cap = bool(
+            state.get("max_screened_per_day", 0) > 0
+            and state.get("daily_screened_count", 0) >= state["max_screened_per_day"]
+        )
+        explicit_review_cap = bool(
+            state.get("review_limit", 0) > 0
+            and state.get("daily_review_count", 0) >= state["review_limit"]
+        )
+        search_budget = float(state.get("search_budget_usd") or 0.0)
+        search_budget_remaining = (
+            search_budget <= 0
+            or state.get("search_cost_today_usd", 0.0) < search_budget
+        )
+        if (unresolved_current or has_candidates) and search_budget_remaining and not (
+            explicit_screen_cap or explicit_daily_screen_cap or explicit_review_cap
+        ):
+            return {
+                "status": "finish_rejected",
+                "reason": "There are still unprocessed candidates and the DeepSeek search budget remains. Continue screening instead of ending early.",
+            }
         state["finished"] = True
         state["finish_reason"] = str(arguments.get("reason") or "DeepSeek finished the cycle.")[:800]
         _save_autopilot_state(state)
@@ -2634,7 +2663,7 @@ def run_deepseek_hunter_agent(state, max_steps=0):
         messages.append({
             "role": "assistant", "content": message.get("content"), "tool_calls": tool_calls,
         })
-        for tool_call in tool_calls:
+        for tool_index, tool_call in enumerate(tool_calls):
             call_id = tool_call.get("id")
             function = tool_call.get("function") or {}
             name = function.get("name") or ""
@@ -2643,7 +2672,13 @@ def run_deepseek_hunter_agent(state, max_steps=0):
                 arguments = json.loads(raw_arguments)
                 if not isinstance(arguments, dict):
                     raise ValueError("Tool arguments must be a JSON object.")
-                tool_result = _execute_autopilot_tool(name, arguments, state)
+                if tool_index > 0:
+                    tool_result = {
+                        "status": "ignored_extra_tool_call",
+                        "reason": "Only one Hunter action is accepted per priced DeepSeek decision. Request the next action in a new turn.",
+                    }
+                else:
+                    tool_result = _execute_autopilot_tool(name, arguments, state)
             except (ValueError, TypeError, KeyError) as exc:
                 tool_result = {"status": "invalid_tool_arguments", "reason": str(exc)[:400]}
             except Exception as exc:
