@@ -2280,7 +2280,10 @@ def _screen_next_autopilot_candidate(state):
     while state["next_index"] < len(state.get("candidates") or []):
         if state["cycle_screened"] >= state["max_screened"]:
             break
-        if state["daily_screened_count"] >= state["max_screened_per_day"]:
+        if (
+            state["max_screened_per_day"] > 0
+            and state["daily_screened_count"] >= state["max_screened_per_day"]
+        ):
             return {
                 "status": "daily_screen_budget_reached",
                 "contracts_screened_today": state["daily_screened_count"],
