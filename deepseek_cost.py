@@ -23,9 +23,9 @@ _RATES = {
 
 def _rate_key(model):
     name = (model or "").strip().lower()
-    if name in {"deepseek-flash", "deepseek-v4-flash", "deepseek-chat"}:
+    if name in {"deepseek-flash", "deepseek-v4-flash"}:
         return "deepseek-flash"
-    if name in {"deepseek-v4-pro", "deepseek-reasoner"}:
+    if name in {"deepseek-v4-pro"}:
         return "deepseek-v4-pro"
     # Unknown aliases are priced at the highest listed tier rather than $0.
     return "deepseek-v4-pro"
