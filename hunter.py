@@ -2795,13 +2795,11 @@ def run_autopilot(args):
         checkpoint = {}
 
     state = {
-                "network": args.network, "include_verified": args.include_verified,
-                "gecko_page_next": int(checkpoint.get("gecko_page_next") or 1),
-                "gecko_pass_complete": bool(checkpoint.get("gecko_pass_complete")),
-                "sourcify_after_match_id": checkpoint.get("sourcify_after_match_id"),
-                "sourcify_pass_complete": bool(checkpoint.get("sourcify_pass_complete")) or not args.include_verified,
-                "max_candidates": args.max_candidates, "max_screened": args.max_screened,
-                "minimum_exposure_usd": args.min_exposure_usd,
+        "network": args.network, "include_verified": args.include_verified,
+        "gecko_page_next": int(checkpoint.get("gecko_page_next") or 1),
+        "gecko_pass_complete": bool(checkpoint.get("gecko_pass_complete")),
+        "sourcify_after_match_id": checkpoint.get("sourcify_after_match_id"),
+        "sourcify_pass_complete": bool(checkpoint.get("sourcify_pass_complete")) or not args.include_verified,
         "max_candidates": args.max_candidates, "max_screened": args.max_screened,
         "minimum_exposure_usd": args.min_exposure_usd,
         "review_limit": args.max_ai_reviews,
@@ -2994,9 +2992,6 @@ def main():
         help="Let DeepSeek operate Hunter's allowlisted discovery/screen/review commands autonomously",
     )
     a.add_argument("--network", choices=sorted(CHAIN_IDS), default="bsc")
-    a.add_argument("--pages", type=int, default=3, help="GeckoTerminal new-pool pages")
-    a.add_argument("--limit", type=int, default=50, help="Discovery rows per source")
-    a.add_argument("--verified-limit", type=int, default=100, help="Recent Sourcify verified contracts")
     a.add_argument("--max-candidates", type=int, default=0, help="Maximum combined candidate set per cycle; 0 means use all returned candidates")
     a.add_argument("--max-screened", type=int, default=0, help="Maximum contracts receiving static screening per cycle; 0 means unlimited")
     a.add_argument("--max-screened-per-day", type=int, default=0, help="Maximum contracts receiving static screening per UTC day; 0 means unlimited")
@@ -3024,8 +3019,7 @@ def main():
 
     if args.command == "autopilot":
         if (
-            args.pages < 1 or args.limit < 1 or args.verified_limit < 1
-            or args.max_candidates < 0 or args.max_screened < 0
+            args.max_candidates < 0 or args.max_screened < 0
             or args.max_ai_reviews < 0 or args.max_screened_per_day < 0
             or args.max_deepseek_search_cost_usd < 0 or args.max_deepseek_analysis_cost_usd < 0
             or args.max_agent_steps < 0 or args.min_exposure_usd < 500
