@@ -11,7 +11,7 @@ from frontier import (
     analyze_fund_handling,
     analyze_source,
 )
-from hunter import rank, source_risk_signals
+from hunter import (candidate_review_gate, inspect_unprivileged_surface, rank, source_risk_signals)
 
 
 class FrontierTriageTests(unittest.TestCase):
@@ -158,6 +158,72 @@ class HunterRankingTests(unittest.TestCase):
         score, findings = rank([detector])
         self.assertEqual(score, 8)
         self.assertEqual(findings[0]["triage_status"], "untriaged")
+
+
+class HunterAutopilotGateTests(unittest.TestCase):
+    def test_weirdly_named_public_forwarder_is_kept_as_intermediary(self):
+        source = [{
+            "path": "contracts/Forwarder.sol",
+            "content": """
+                contract Forwarder {
+                    function x7(address destination, bytes calldata payload) external {
+                        (bool ok, ) = destination.call(payload);
+                        require(ok);
+                    }
+                }
+            """,
+        }]
+        surface = inspect_unprivileged_surface(source, [])
+        self.assertTrue(surface["unprivileged_candidate"])
+        self.assertTrue(surface["intermediary_candidate"])
+        self.assertEqual(surface["unprivileged_asset_functions"][0]["function"], "x7")
+
+    def test_public_token_flow_is_unprivileged_without_conventional_function_name(self):
+        source = [{
+            "path": "contracts/Router.sol",
+            "content": """
+                contract Router {
+                    function f9(address asset, address receiver, uint256 qty) external {
+                        IERC20(asset).safeTransferFrom(msg.sender, receiver, qty);
+                    }
+                }
+            """,
+        }]
+        surface = inspect_unprivileged_surface(source, [])
+        self.assertTrue(surface["unprivileged_candidate"])
+        self.assertFalse(surface["intermediary_candidate"])
+
+    def test_owner_only_withdrawal_does_not_qualify_as_unprivileged(self):
+        source = [{
+            "path": "contracts/Vault.sol",
+            "content": """
+                contract Vault {
+                    function z(address receiver, uint256 amount) external onlyOwner {
+                        token.safeTransfer(receiver, amount);
+                    }
+                }
+            """,
+        }]
+        surface = inspect_unprivileged_surface(source, [])
+        self.assertFalse(surface["unprivileged_candidate"])
+        self.assertFalse(surface["intermediary_candidate"])
+
+    def test_500_usd_minimum_is_inclusive(self):
+        surface = {"unprivileged_candidate": True, "intermediary_candidate": False}
+        self.assertTrue(candidate_review_gate(
+            {"economic_exposure_usd_estimate": 500}, surface, 500
+        )["eligible"])
+        self.assertFalse(candidate_review_gate(
+            {"economic_exposure_usd_estimate": 499.99}, surface, 500
+        )["eligible"])
+
+    def test_intermediary_exception_does_not_remove_unprivileged_requirement(self):
+        intermediary = {"unprivileged_candidate": True, "intermediary_candidate": True}
+        privileged = {"unprivileged_candidate": False, "intermediary_candidate": False}
+        below_threshold = {"economic_exposure_usd_estimate": 20}
+        self.assertTrue(candidate_review_gate(below_threshold, intermediary, 500)["eligible"])
+        self.assertFalse(candidate_review_gate(below_threshold, privileged, 500)["eligible"])
+
 
 
 if __name__ == "__main__":
