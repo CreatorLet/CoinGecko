@@ -2729,6 +2729,7 @@ def main():
     a.add_argument("--verified-limit", type=int, default=100, help="Recent Sourcify verified contracts")
     a.add_argument("--max-candidates", type=int, default=200, help="Maximum combined candidate set per cycle")
     a.add_argument("--max-screened", type=int, default=40, help="Maximum contracts receiving static screening per cycle")
+    a.add_argument("--max-screened-per-day", type=int, default=120, help="Maximum contracts receiving static screening per UTC day; 0 means unlimited")
     a.add_argument("--max-ai-reviews", type=int, default=6, help="DeepSeek full reviews per UTC day; 0 means unlimited")
     a.add_argument("--max-agent-steps", type=int, default=140, help="Maximum DeepSeek command decisions per cycle")
     a.add_argument("--min-exposure-usd", type=float, default=500, help="Hard minimum value gate; values below $500 are rejected")
@@ -2753,8 +2754,8 @@ def main():
         if (
             args.pages < 1 or args.limit < 1 or args.verified_limit < 1
             or args.max_candidates < 1 or args.max_screened < 1
-            or args.max_ai_reviews < 0 or args.max_agent_steps < 1
-            or args.min_exposure_usd < 500
+            or args.max_ai_reviews < 0 or args.max_screened_per_day < 0
+            or args.max_agent_steps < 1 or args.min_exposure_usd < 500
             or args.interval_seconds < 30 or args.max_hours < 0
         ):
             parser.error("Invalid autopilot limits; minimum exposure must be at least $500 and interval at least 30 seconds")
