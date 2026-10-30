@@ -1293,9 +1293,30 @@ def inspect_unprivileged_surface(source_files, findings=None):
         flags=re.S,
     )
 
+    # Typed interface calls can be intermediary/forwarding routes even if
+    # developers never use Solidity's raw .call syntax.
+    direct_interface_call = re.compile(
+        r"\bI[A-Z][A-Za-z_0-9]*\s*\([^)]*\)\s*\.\s*([A-Za-z_][A-Za-z_0-9]*)\s*\(",
+        flags=re.S,
+    )
+    safe_interface_methods = {
+        "balanceOf", "transfer", "transferFrom", "safeTransfer", "safeTransferFrom",
+        "approve", "allowance", "decimals", "symbol", "name", "ownerOf",
+        "getApproved", "isApprovedForAll", "supportsInterface", "totalSupply",
+        "totalAssets", "token0", "token1", "getReserves", "latestRoundData",
+        "latestAnswer", "version", "nonces",
+    }
+
     for item in source_files:
         code = _source_without_comments(item.get("content", ""))
         combined.append(code)
+        interface_variables = set()
+        for match in re.finditer(
+            r"\b(I[A-Z][A-Za-z_0-9]*)\s+(?:(?:public|private|internal|immutable|constant)\s+)*([A-Za-z_][A-Za-z_0-9]*)",
+            code,
+        ):
+            interface_variables.add(match.group(2))
+
         privileged_modifiers = set()
         for match in modifier_pattern.finditer(code):
             closing = _matching_brace(code, match.end() - 1)
@@ -1325,6 +1346,7 @@ def inspect_unprivileged_surface(source_files, findings=None):
                 "name": name, "visibility": visibility,
                 "modifiers": modifiers, "params": _parameter_names(params),
                 "body": body, "privileged": privileged,
+                "interface_variables": interface_variables,
             })
 
         for match in fallback_pattern.finditer(code):
@@ -1335,11 +1357,9 @@ def inspect_unprivileged_surface(source_files, findings=None):
                 "name": match.group(1), "visibility": "external",
                 "modifiers": [], "params": [],
                 "body": code[match.end():closing], "privileged": False,
+                "interface_variables": interface_variables,
             })
 
-    # Build an approximate internal call graph. Overloaded functions are
-    # combined conservatively: if any definition is privileged or performs an
-    # external operation, callers are kept in the risk envelope.
     operation_pattern = re.compile(
         r"(\.call\b|\.delegatecall\b|\.staticcall\b|\.callcode\b|"
         r"functionCall\s*\(|functionDelegateCall\s*\(|"
@@ -1347,20 +1367,37 @@ def inspect_unprivileged_surface(source_files, findings=None):
         r"\.send\s*\(|raw_call\s*\(|call\s*\{)",
         flags=re.I,
     )
+
+    def interface_methods(body, variables):
+        methods = set(direct_interface_call.findall(body))
+        for variable in variables:
+            methods.update(re.findall(
+                r"\b" + re.escape(variable) + r"\s*\.\s*([A-Za-z_][A-Za-z_0-9]*)\s*\(",
+                body,
+            ))
+        return methods
+
     helper_ops = {}
-    helper_low_level = {}
+    helper_intermediary = {}
     helper_guards = {}
     for fn in functions:
         name = fn["name"]
         body = fn["body"]
-        helper_ops[name] = helper_ops.get(name, False) or bool(operation_pattern.search(body))
-        low_level = bool(re.search(
+        methods = interface_methods(body, fn["interface_variables"])
+        nonstandard_interface_call = any(
+            method not in safe_interface_methods for method in methods
+        )
+        has_operation = bool(operation_pattern.search(body)) or bool(methods)
+        has_intermediary = bool(re.search(
             r"(\.call\b|\.delegatecall\b|\.staticcall\b|\.callcode\b|raw_call\s*\(|call\s*\{)",
             body, flags=re.I,
-        ))
-        helper_low_level[name] = helper_low_level.get(name, False) or low_level
+        )) or nonstandard_interface_call
+        helper_ops[name] = helper_ops.get(name, False) or has_operation
+        helper_intermediary[name] = helper_intermediary.get(name, False) or has_intermediary
         helper_guards[name] = helper_guards.get(name, False) or fn["privileged"]
 
+    # Propagate asset operations, forwarding/intermediary calls, and access
+    # guards through internal helper chains. Overloads merge conservatively.
     for _ in range(8):
         changed = False
         for fn in functions:
@@ -1373,8 +1410,8 @@ def inspect_unprivileged_surface(source_files, findings=None):
                 if helper_ops.get(helper_name) and not helper_ops.get(fn["name"]):
                     helper_ops[fn["name"]] = True
                     changed = True
-                if helper_low_level.get(helper_name) and not helper_low_level.get(fn["name"]):
-                    helper_low_level[fn["name"]] = True
+                if helper_intermediary.get(helper_name) and not helper_intermediary.get(fn["name"]):
+                    helper_intermediary[fn["name"]] = True
                     changed = True
                 if helper_guards.get(helper_name) and not fn["privileged"]:
                     fn["privileged"] = True
@@ -1398,7 +1435,7 @@ def inspect_unprivileged_surface(source_files, findings=None):
         name = fn["name"]
         body = fn["body"]
         has_op = helper_ops.get(name, False)
-        has_low_level = helper_low_level.get(name, False)
+        has_intermediary_call = helper_intermediary.get(name, False)
         has_finding = name in finding_functions
         callback = bool(re.search(
             r"(callback|hook|executeoperation|onflashloan|uniswapv[23]|onerc\d+received|"
@@ -1410,7 +1447,7 @@ def inspect_unprivileged_surface(source_files, findings=None):
             "modifiers": fn["modifiers"],
             "privileged_gate_detected": fn["privileged"],
             "external_asset_operation": has_op,
-            "external_low_level_call": has_low_level,
+            "external_intermediary_call": has_intermediary_call,
             "static_finding": has_finding,
             "callback_like": callback,
             "body_excerpt": re.sub(r"\s+", " ", body)[:650],
@@ -1420,26 +1457,24 @@ def inspect_unprivileged_surface(source_files, findings=None):
             continue
         unprivileged.append(summary)
 
-        # A non-privileged public path reaching a low-level call is retained as
-        # a potential intermediary, even when every variable/function is oddly
-        # named. DeepSeek decides whether the target is fixed/trusted or
-        # attacker-controlled; the static stage intentionally favors recall.
-        if has_low_level or (callback and has_op):
+        # Any unprivileged path reaching a low-level or nonstandard typed
+        # external call is passed as an intermediary lead. It is not a bug
+        # declaration; DeepSeek judges fixed trusted routes vs interception.
+        if has_intermediary_call or (callback and has_op):
             intermediaries.append({
-                "function": name, "callback_or_forwarder": True,
+                "function": name,
+                "callback_or_forwarder": True,
                 "reason": (
-                    "Unprivileged external/callback entrypoint reaches a low-level external call; "
-                    "target control and transaction interception need manual review."
+                    "Unprivileged external/callback entrypoint reaches a nonstandard external call; "
+                    "check target control, calldata influence, callbacks and transaction interception."
                 ),
             })
 
-    # If some functions parsed but all external surfaces failed to resolve,
-    # keep a synthetic review candidate when source/findings still show asset
-    # operations. A parser limitation must not become a silent false negative.
-    has_source_ops = bool(operation_pattern.search("\n".join(combined)))
+    has_source_ops = bool(operation_pattern.search("\n".join(combined))) or bool(
+        direct_interface_call.search("\n".join(combined))
+    )
     has_material_finding = any(
-        f.get("impact") in ("High", "Medium")
-        and not f.get("triage_note")
+        f.get("impact") in ("High", "Medium") and not f.get("triage_note")
         for f in findings
     )
     if not unprivileged and (has_source_ops or has_material_finding):
@@ -1449,7 +1484,7 @@ def inspect_unprivileged_surface(source_files, findings=None):
             "modifiers": [],
             "privileged_gate_detected": False,
             "external_asset_operation": has_source_ops,
-            "external_low_level_call": has_source_ops,
+            "external_intermediary_call": has_source_ops,
             "static_finding": has_material_finding,
             "callback_like": True,
             "body_excerpt": (
