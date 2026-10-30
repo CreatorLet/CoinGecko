@@ -932,11 +932,15 @@ def scan_github_repositories(input_path, limit=15, ai=False, min_score=20, max_f
             encoded_path = "/".join(quote(part, safe="") for part in path.split("/"))
             url = f"https://raw.githubusercontent.com/{full_name}/{quote(branch, safe='')}/{encoded_path}"
             try:
-                response = requests.get(url, headers={"User-Agent": "CoinGecko-Frontier/1.0"}, timeout=20)
-                if response.status_code == 404:
-                    continue
-                response.raise_for_status()
-                source = response.text
+                source_cache_key = {"url": url}
+                cache_hit, source = cache_get("http_text", source_cache_key, get_ttl_for_url(url))
+                if not cache_hit:
+                    response = requests.get(url, headers={"User-Agent": "CoinGecko-Frontier/1.0"}, timeout=20)
+                    if response.status_code == 404:
+                        continue
+                    response.raise_for_status()
+                    source = response.text
+                    cache_set("http_text", source_cache_key, source)
             except requests.RequestException as exc:
                 print(f"[GitHub source] {full_name}/{path}: {str(exc)[:160]}")
                 continue
