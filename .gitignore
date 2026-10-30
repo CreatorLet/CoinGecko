@@ -4,3 +4,4 @@ __pycache__/
 discovery.json
 report.json
 .venv/
+.cache/
