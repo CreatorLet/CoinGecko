@@ -1,5 +1,20 @@
 # CoinGecko smart contract screener
 
+
+## No-extra-API BSC workflow (October 2026)
+
+The workflow below uses only existing optional credentials: `ETHERSCAN_API_KEY`, `GOPLUS_API_KEY`, `GOPLUS_API_SECRET`, `NODEREAL_API_KEY`, `DEEPSEEK_API_KEY`, and `GITHUB_TOKEN`. You do **not** need to configure `BSC_RPC_URL`; skip `frontier.py deployments` and `mempool`, which are direct-RPC commands.
+
+```bash
+python frontier.py verified --network bsc --limit 100 --out frontier-verified-bsc.json
+python hunter.py scan --input frontier-verified-bsc.json --limit 30 --min-score 30 --out verified-review.json
+python hunter.py discover --network bsc --pages 2 --limit 50 --out bsc-discovery.json
+python hunter.py scan --input bsc-discovery.json --min-liquidity 50000 --limit 15 --min-score 30 --out bsc-review.json
+```
+
+The scanner now adds `bounty_worthiness_score` (0–100), `bounty_worthiness_factors`, and `material_fund_flow_candidate` alongside the existing Slither/source warning `review_score`. The new score favors verified code with real asset-flow/accounting entrypoints. It penalizes plain tokens and missing fund handling. **It is only a research ranking, never an exploitability judgment or confirmed contract TVL.** Pool liquidity is context; it does not mean the token contract controls that liquidity. For AI, add `--ai` only after reading an initial report: DeepSeek is restricted to material fund-flow candidates whose new ranking clears its threshold. High-ranking fund-handling candidates can be considered even if generic syntax warnings are scarce, avoiding false negatives.
+
+
 Minimal pipeline: **GeckoTerminal new pools -> reserve/volume filter -> Etherscan/Sourcify source -> Slither + GoPlus token-risk signals -> optional DeepSeek**.
 
 No Immunefi matching, Foundry, transaction execution, or automated live-contract testing. Slither output is a **screening signal**, not proof of exploitable fund loss.
