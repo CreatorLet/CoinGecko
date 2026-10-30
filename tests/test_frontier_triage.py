@@ -251,7 +251,7 @@ class HunterAutopilotGateTests(unittest.TestCase):
             [row["function"] for row in surface["intermediary_functions"]],
         )
 
-    def test_custom_role_modifier_is_recognized_as_privileged(self):
+    def test_unknown_custom_caller_modifier_is_retained_for_deepseek_check(self):
         source = [{
             "path": "contracts/Vault.sol",
             "content": """
@@ -269,8 +269,8 @@ class HunterAutopilotGateTests(unittest.TestCase):
             """,
         }]
         surface = inspect_unprivileged_surface(source, [])
-        # The unfamiliar modifier is deliberately not assumed to be privileged
-        # by name. It stays visible for DeepSeek's source-level access check.
+        # The custom mapping-based gate is not guessed from its name alone.
+        # It stays visible for DeepSeek to verify whether callers can self-authorize.
         self.assertTrue(surface["unprivileged_candidate"])
 
 
