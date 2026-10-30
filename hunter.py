@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from functools import lru_cache
 
 import requests
 from dotenv import load_dotenv
@@ -1094,6 +1095,231 @@ def bounty_worthiness(source, paths, root, entry, score, signal_score, findings)
     elif not material:
         factors.append("no static evidence of fund movement; keep result for manual filtering")
     return max(0, min(100, score_out)), factors, material
+
+
+def _source_without_comments(source):
+    source = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+    return re.sub(r"//[^\n]*", "", source)
+
+
+def _matching_brace(source, opening):
+    depth = 0
+    quote = None
+    escaped = False
+    line_comment = False
+    block_comment = False
+    i = opening
+    while i < len(source):
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < len(source) else ""
+        if line_comment:
+            if ch == "\n":
+                line_comment = False
+        elif block_comment:
+            if ch == "*" and nxt == "/":
+                block_comment = False
+                i += 1
+        elif quote:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == quote:
+                quote = None
+        elif ch == "/" and nxt == "/":
+            line_comment = True
+            i += 1
+        elif ch == "/" and nxt == "*":
+            block_comment = True
+            i += 1
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return None
+
+
+def _parameter_names(params):
+    names = []
+    for item in params.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        item = re.sub(r"\b(memory|calldata|storage|payable)\b", " ", item)
+        match = re.search(r"([A-Za-z_][A-Za-z_0-9]*)\s*(?:\[[^\]]*\])?\s*$", item)
+        if match:
+            names.append(match.group(1))
+    return names
+
+
+def inspect_unprivileged_surface(source_files, findings=None):
+    """Broad recall-oriented scan of external entry points; not an exploitability proof."""
+    findings = findings or []
+    functions = []
+    combined = []
+    pattern = re.compile(
+        r"\bfunction\s+([A-Za-z_][A-Za-z_0-9]*)\s*\((.*?)\)\s*([^{;]*)\{",
+        flags=re.S,
+    )
+    for item in source_files:
+        code = _source_without_comments(item.get("content", ""))
+        combined.append(code)
+        for match in pattern.finditer(code):
+            name, params, header = match.group(1), match.group(2), match.group(3)
+            opening = match.end() - 1
+            closing = _matching_brace(code, opening)
+            if closing is None:
+                continue
+            visibility = "external" if re.search(r"\bexternal\b", header) else (
+                "public" if re.search(r"\bpublic\b", header) else "internal"
+            )
+            privileged_modifier = bool(re.search(
+                r"\b(onlyOwner|onlyAdmin|onlyRole|onlyGovernance|onlyOperator|onlyTreasury|"
+                r"onlyGuardian|onlyPauser|onlyMinter|onlyFactory|onlyAuthorized|onlyExecutor|"
+                r"onlyManager|onlyMultisig|onlyDAO|auth)\b",
+                header, flags=re.I,
+            ))
+            body = code[opening + 1:closing]
+            privileged_body = bool(re.search(
+                r"(_checkOwner\s*\(|_checkRole\s*\(|hasRole\s*\(|"
+                r"(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)"
+                r"\s*\[\s*msg\.sender\s*\]|"
+                r"msg\.sender\s*==\s*(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)\b|"
+                r"(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)\s*==\s*msg\.sender)",
+                body, flags=re.I,
+            ))
+            functions.append({
+                "name": name, "visibility": visibility,
+                "modifiers": re.findall(r"\b([A-Za-z_][A-Za-z_0-9]*)\s*(?=\()", header),
+                "params": _parameter_names(params), "body": body,
+                "privileged": privileged_modifier or privileged_body,
+            })
+
+    operation_pattern = re.compile(
+        r"(\.call\b|\.delegatecall\b|\.staticcall\b|functionCall\s*\(|functionDelegateCall\s*\(|"
+        r"safeTransfer(?:From)?\s*\(|transferFrom\s*\(|\.transfer\s*\(|\.send\s*\(|raw_call\s*\(|call\s*\{)",
+        flags=re.I,
+    )
+    helper_ops = {fn["name"]: bool(operation_pattern.search(fn["body"])) for fn in functions}
+    for _ in range(4):
+        changed = False
+        for fn in functions:
+            if helper_ops.get(fn["name"]):
+                continue
+            for helper_name, has_ops in helper_ops.items():
+                if has_ops and re.search(r"\b" + re.escape(helper_name) + r"\s*\(", fn["body"]):
+                    helper_ops[fn["name"]] = True
+                    changed = True
+                    break
+        if not changed:
+            break
+
+    finding_functions = set()
+    for finding in findings:
+        if finding.get("impact") not in ("High", "Medium", "Low"):
+            continue
+        match = re.search(r"\.([A-Za-z_][A-Za-z_0-9]*)\s*\(", str(finding.get("description") or ""))
+        if match:
+            finding_functions.add(match.group(1))
+
+    public_functions, unprivileged, intermediaries = [], [], []
+    for fn in functions:
+        if fn["visibility"] not in ("external", "public"):
+            continue
+        body = fn["body"]
+        has_op = helper_ops.get(fn["name"], False)
+        has_finding = fn["name"] in finding_functions
+        callback = bool(re.search(
+            r"(callback|hook|executeoperation|onflashloan|uniswapv[23]|onerc\d+received|"
+            r"tokensreceived|ontoken_transfer|onbridgemessage|receive_message|fallback|receive)",
+            fn["name"], flags=re.I,
+        ))
+        summary = {
+            "function": fn["name"], "visibility": fn["visibility"],
+            "modifiers": fn["modifiers"], "privileged_gate_detected": fn["privileged"],
+            "external_asset_operation": has_op, "static_finding": has_finding,
+            "callback_like": callback, "body_excerpt": re.sub(r"\s+", " ", body)[:650],
+        }
+        public_functions.append(summary)
+        if fn["privileged"] or not (has_op or has_finding or callback):
+            continue
+        unprivileged.append(summary)
+
+        params = {p.lower() for p in fn["params"]}
+        target_params = params.intersection({
+            "target", "to", "recipient", "receiver", "destination", "implementation",
+            "router", "executor", "callee", "spender", "pool", "bridge", "module",
+        })
+        data_params = params.intersection({
+            "data", "calldata", "payload", "userop", "operation", "message",
+            "input", "instructions", "transaction",
+        })
+        low_level = bool(re.search(
+            r"(\.call\b|\.delegatecall\b|\.staticcall\b|functionCall\s*\(|"
+            r"functionDelegateCall\s*\(|raw_call\s*\(|call\s*\{)",
+            body, flags=re.I,
+        ))
+        forwards_input = low_level and bool(
+            (target_params and data_params) or "msg.data" in body
+            or (target_params and re.search(r"\b(msg.sender|msg.value)\b", body))
+        )
+        if (callback and has_op) or forwards_input:
+            intermediaries.append({
+                "function": fn["name"], "callback_or_forwarder": True,
+                "target_parameters": sorted(target_params),
+                "data_parameters": sorted(data_params),
+                "reason": "Externally reachable non-privileged callback/forwarding path makes external calls.",
+            })
+
+    if not functions and re.search(r"(\.call\b|delegatecall|raw_call|safeTransfer|transferFrom)", "\n".join(combined)):
+        unprivileged.append({
+            "function": "unparsed_external_surface", "visibility": "unknown",
+            "modifiers": [], "privileged_gate_detected": False,
+            "external_asset_operation": True, "static_finding": bool(findings),
+            "callback_like": True,
+            "body_excerpt": "Source parser could not reliably identify function boundaries; retained for manual review.",
+        })
+        intermediaries.append({
+            "function": "unparsed_external_surface", "callback_or_forwarder": True,
+            "target_parameters": [], "data_parameters": [],
+            "reason": "Parser fallback retained an unclassified external-call surface.",
+        })
+
+    return {
+        "public_external_functions": public_functions[:50],
+        "unprivileged_asset_functions": unprivileged[:30],
+        "intermediary_functions": intermediaries[:20],
+        "unprivileged_candidate": bool(unprivileged),
+        "intermediary_candidate": bool(intermediaries),
+        "evidence_count": len(unprivileged),
+    }
+
+
+def candidate_review_gate(exposure, surface, minimum_usd=500.0):
+    """Only unprivileged paths pass; the value threshold has a narrow intermediary exception."""
+    unprivileged = bool(surface.get("unprivileged_candidate"))
+    intermediary = bool(surface.get("intermediary_candidate"))
+    amount = _safe_float(exposure.get("economic_exposure_usd_estimate"))
+    value_ok = amount >= float(minimum_usd)
+    eligible = unprivileged and (value_ok or intermediary)
+    return {
+        "eligible": eligible, "unprivileged_candidate": unprivileged,
+        "exposure_ok": value_ok,
+        "intermediary_exception": bool(unprivileged and intermediary and not value_ok),
+        "economic_exposure_usd_estimate": amount,
+        "minimum_exposure_usd": float(minimum_usd),
+        "reason": (
+            "unprivileged surface and >= minimum observable exposure" if eligible and value_ok else
+            "unprivileged intermediary/callback exception below exposure threshold" if eligible else
+            "no plausible unprivileged externally reachable asset/call surface" if not unprivileged else
+            "observable exposure below threshold and no high-confidence intermediary exception"
+        ),
+    }
 
 
 def scan_target(entry, ai=False, min_score=30):
