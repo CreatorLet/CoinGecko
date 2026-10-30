@@ -2320,78 +2320,126 @@ def run_autopilot(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Read-only GeckoTerminal contract screening CLI")
+    parser = argparse.ArgumentParser(description="Read-only smart-contract Hunter with optional DeepSeek command agent")
     sub = parser.add_subparsers(dest="command", required=True)
+
     d = sub.add_parser("discover", help="Discover new GeckoTerminal pools; no scans")
     d.add_argument("--network", choices=sorted(CHAIN_IDS), default="eth")
     d.add_argument("--pages", type=int, default=1)
     d.add_argument("--limit", type=int, default=20)
     d.add_argument("--out", default="discovery.json")
-    s = sub.add_parser("scan", help="Static scan discovered verified contract sources; no live-network testing")
+
+    s = sub.add_parser("scan", help="Run static checks and optional gated DeepSeek review on a discovery file")
     s.add_argument("--input", default="discovery.json", help="JSON discovery output from a discovery command")
-    s.add_argument("--min-liquidity", type=float, default=10000, help="Minimum pool reserve USD or protocol TVL USD")
-    s.add_argument("--min-volume", type=float, default=0, help="Minimum reported 24h volume USD")
+    s.add_argument("--min-liquidity", type=float, default=0, help="Optional pool-liquidity prefilter; default keeps low-liquidity intermediary candidates")
+    s.add_argument("--min-volume", type=float, default=0, help="Optional reported 24h volume prefilter")
+    s.add_argument("--min-exposure-usd", type=float, default=500, help="Required observable value unless an unprivileged intermediary exception is detected; cannot be below $500")
     s.add_argument("--limit", type=int, default=10)
     s.add_argument("--ai", action="store_true")
-    s.add_argument("--min-score", type=int, default=30)
+    s.add_argument("--min-score", type=int, default=0)
     s.add_argument("--out", default="report.json")
+
+    a = sub.add_parser(
+        "autopilot",
+        help="Let DeepSeek operate Hunter's allowlisted discovery/screen/review commands autonomously",
+    )
+    a.add_argument("--network", choices=sorted(CHAIN_IDS), default="bsc")
+    a.add_argument("--pages", type=int, default=3, help="GeckoTerminal new-pool pages")
+    a.add_argument("--limit", type=int, default=50, help="Discovery rows per source")
+    a.add_argument("--verified-limit", type=int, default=100, help="Recent Sourcify verified contracts")
+    a.add_argument("--max-candidates", type=int, default=200, help="Maximum combined candidate set per cycle")
+    a.add_argument("--max-screened", type=int, default=40, help="Maximum contracts receiving static screening per cycle")
+    a.add_argument("--max-ai-reviews", type=int, default=6, help="Total DeepSeek full reviews; 0 means unlimited")
+    a.add_argument("--max-agent-steps", type=int, default=140, help="Maximum DeepSeek command decisions per cycle")
+    a.add_argument("--min-exposure-usd", type=float, default=500, help="Hard minimum value gate; values below $500 are rejected")
+    a.add_argument("--no-verified", dest="include_verified", action="store_false", help="Use GeckoTerminal pool candidates only")
+    a.set_defaults(include_verified=True)
+    a.add_argument("--continuous", action="store_true", help="Keep discovering on a server after each cycle")
+    a.add_argument("--interval-seconds", type=int, default=900, help="Delay between continuous discovery cycles")
+    a.add_argument("--max-hours", type=float, default=0, help="Stop continuous mode after this many hours; 0 runs until stopped")
+    a.add_argument("--out", default="hunter-autopilot.json")
+    a.add_argument("--checkpoint", default="hunter-autopilot.checkpoint.json")
+
     args = parser.parse_args()
     if args.command == "discover":
+        if args.pages < 1 or args.limit < 1:
+            parser.error("--pages and --limit must be positive")
         result = discover(args.network, args.pages, args.limit)
-    else:
-        if args.limit < 1 or not 0 <= args.min_score <= 100:
-            parser.error("Invalid --limit or --min-score")
-        if args.min_liquidity < 0 or args.min_volume < 0:
-            parser.error("Liquidity/volume thresholds must be nonnegative")
-        candidates = json.loads(Path(args.input).read_text(encoding="utf-8"))
-        if not isinstance(candidates, list):
-            parser.error("Input must be a JSON array of discovery records")
-        eligible = []
-        seen = set()
-        for item in candidates:
-            if not isinstance(item, dict):
+        Path(args.out).write_text(json.dumps(result, indent=2), encoding="utf-8")
+        print(f"Wrote {len(result)} records to {args.out}")
+        return
+
+    if args.command == "autopilot":
+        if (
+            args.pages < 1 or args.limit < 1 or args.verified_limit < 1
+            or args.max_candidates < 1 or args.max_screened < 1
+            or args.max_ai_reviews < 0 or args.max_agent_steps < 1
+            or args.min_exposure_usd < 500
+            or args.interval_seconds < 30 or args.max_hours < 0
+        ):
+            parser.error("Invalid autopilot limits; minimum exposure must be at least $500 and interval at least 30 seconds")
+        state = run_autopilot(args)
+        print(
+            f"Autopilot finished: cycles={state['cycles_completed']}, "
+            f"screened_records={len(state['records'])}, deepseek_reviews={state['review_count']}"
+        )
+        print(f"Report: {args.out}")
+        print(f"Checkpoint: {args.checkpoint}")
+        return
+
+    if args.limit < 1 or not 0 <= args.min_score <= 100:
+        parser.error("Invalid --limit or --min-score")
+    if args.min_liquidity < 0 or args.min_volume < 0:
+        parser.error("Liquidity/volume thresholds must be nonnegative")
+    if args.min_exposure_usd < 500:
+        parser.error("--min-exposure-usd cannot be below $500")
+    candidates = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    if not isinstance(candidates, list):
+        parser.error("Input must be a JSON array of discovery records")
+    eligible = []
+    seen = set()
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+        net = item.get("network")
+        addr = item.get("base_token") or item.get("address", "")
+        if net not in CHAIN_IDS or not isinstance(addr, str) or not ADDRESS.fullmatch(addr):
+            continue
+        target_kind = item.get("target_kind")
+        liquidity = _safe_float(item.get("reserve_usd"))
+        volume = _safe_float(item.get("volume_24h_usd"))
+        if target_kind not in ("verified_contract", "chain_deployment"):
+            if not (liquidity >= args.min_liquidity and volume >= args.min_volume):
                 continue
-            net = item.get("network")
-            addr = item.get("base_token") or item.get("address", "")
-            if net not in CHAIN_IDS or not isinstance(addr, str) or not ADDRESS.fullmatch(addr):
-                continue
-            target_kind = item.get("target_kind")
-            try:
-                liquidity = float(item.get("reserve_usd") or 0)
-                volume = float(item.get("volume_24h_usd") or 0)
-            except (ValueError, TypeError):
-                continue
-            if target_kind not in ("verified_contract", "chain_deployment"):
-                if not (liquidity >= args.min_liquidity and volume >= args.min_volume):
-                    continue
-            identity = (net, addr.lower())
-            if identity in seen:
-                continue
-            seen.add(identity)
-            eligible.append((liquidity, {**item, "address": addr}))
-        eligible.sort(key=lambda x: x[0], reverse=True)
-        selected = [item for _, item in eligible[:args.limit]]
-        print(f"Eligible: {len(eligible)}; selected: {len(selected)} for static analysis")
-        result = [scan_target(target, ai=args.ai, min_score=args.min_score) for target in selected]
+        identity = (net, addr.lower())
+        if identity in seen:
+            continue
+        seen.add(identity)
+        eligible.append((liquidity, {**item, "address": addr}))
+    eligible.sort(key=lambda x: x[0], reverse=True)
+    selected = [item for _, item in eligible[:args.limit]]
+    print(f"Eligible discovery rows: {len(eligible)}; selected: {len(selected)} for static analysis")
+    result = [
+        scan_target(
+            target, ai=args.ai, min_score=args.min_score,
+            min_exposure_usd=args.min_exposure_usd,
+        )
+        for target in selected
+    ]
     Path(args.out).write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(f"Wrote {len(result)} records to {args.out}")
-    if args.command == "scan":
-        for row in result:
-            context = row.get("creation_context") or {}
-            related = context.get("related_deployments") or []
-            linked = row.get("related_contract_reviews") or []
-            linked_summary = ",".join(
-                f"{item.get('address', '?')}:{item.get('status', '?')}"
-                for item in linked
-            ) or "-"
-            print(row["network"], row["address"], row["status"],
-                  f"slither={row.get('score', '-')}",
-                  f"source_signals={row.get('source_signal_score', '-')}",
-                  f"goplus={row.get('goplus_risk_score', '-')}",
-                  f"review={row.get('review_score', '-')}",
-                  f"related_deployments={len(related)}",
-                  f"linked_reviews={linked_summary}",
-                  row.get("error") or row.get("skip_reason") or row.get("deepseek_skipped_reason", ""))
+    for row in result:
+        context = row.get("creation_context") or {}
+        gate = row.get("review_gate") or {}
+        print(
+            row.get("network"), row.get("address"), row.get("status"),
+            f"slither={row.get('score', '-')}",
+            f"review={row.get('review_score', '-')}",
+            f"exposure_usd={(row.get('asset_exposure') or {}).get('economic_exposure_usd_estimate', '-')}",
+            f"unprivileged={(row.get('unprivileged_surface') or {}).get('unprivileged_candidate', False)}",
+            f"eligible={gate.get('eligible', False)}",
+            row.get("error") or row.get("skip_reason") or row.get("deepseek_skipped_reason", ""),
+        )
 
 
 if __name__ == "__main__":
