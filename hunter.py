@@ -1526,7 +1526,7 @@ def candidate_brief(result):
     }
 
 
-def scan_target(entry, ai=False, min_score=30):
+def scan_target(entry, ai=False, min_score=30, min_exposure_usd=500.0, include_source=False):
     net, address = entry["network"], entry["address"]
     result = {"network": net, "address": address, "pool": entry.get("pool"),
               "name": entry.get("name"), "reserve_usd": entry.get("reserve_usd"),
@@ -1615,17 +1615,18 @@ def scan_target(entry, ai=False, min_score=30):
             score, findings = rank(detectors)
             signal_score, signals = source_risk_signals(root, paths)
             combined_signals = signals + goplus_signals
-            # DeepSeek selection focuses on source-code evidence. GoPlus risk
-            # flags remain in the report/context but do not by themselves make a
-            # token a bounty candidate; many describe privileged owner controls
-            # or honeypot-like trading risks rather than an unprivileged exploit.
             review_score = min(100, score + signal_score)
             bounty_score, bounty_factors, material_fund_flow = bounty_worthiness(
                 source, paths, root, entry, score, signal_score, findings
             )
-            ai_eligible = material_fund_flow and (
-                review_score >= min_score or bounty_score >= 50
-            )
+            source_files = [
+                {"path": str(p), "content": (root / p).read_text(encoding="utf-8", errors="ignore")}
+                for p in paths
+            ]
+            surface = inspect_unprivileged_surface(source_files, findings)
+            exposure = estimate_asset_exposure(net, address, entry, source, paths, root)
+            gate = candidate_review_gate(exposure, surface, min_exposure_usd)
+            ai_eligible = gate["eligible"]
             result.update({
                 "score": score,
                 "findings": findings,
@@ -1638,32 +1639,34 @@ def scan_target(entry, ai=False, min_score=30):
                 "bounty_worthiness_score": bounty_score,
                 "bounty_worthiness_factors": bounty_factors,
                 "material_fund_flow_candidate": material_fund_flow,
-                "research_disposition": "eligible_for_code_review" if ai_eligible else "low_priority_or_no_fund_flow",
+                "asset_exposure": exposure,
+                "unprivileged_surface": surface,
+                "review_gate": gate,
+                "research_disposition": "eligible_for_unprivileged_review" if ai_eligible else "skip_value_or_privilege_gate",
                 "status": "screened",
             })
-            if ai and review_score >= min_score:
+            if include_source:
+                remaining = 70000
+                bundle = []
+                for item in sorted(source_files, key=lambda x: len(x["content"])):
+                    if remaining <= 0:
+                        break
+                    content = item["content"][:remaining]
+                    bundle.append({"path": item["path"], "content": content})
+                    remaining -= len(content)
+                result["_agent_source_files"] = bundle
+                result["_agent_source_truncated"] = remaining <= 0
+            if ai and ai_eligible:
                 result["deepseek"] = deepseek_review(
                     {"network": net, "address": address, "name": entry.get("name"),
                      "slither_score": score, "source_signal_score": signal_score,
-                     "goplus_risk_score": goplus_score,
-                     "review_score": review_score},
-                    findings, [root / p for p in paths], risk_signals=combined_signals)
+                     "goplus_risk_score": goplus_score, "review_score": review_score,
+                     "asset_exposure": exposure, "unprivileged_surface": surface},
+                    findings, [root / p for p in paths], risk_signals=combined_signals,
+                    max_chars=60000, max_output_tokens=6000)
                 result["status"] = "reviewed"
             elif ai:
-                reasons = []
-                if not ai_eligible:
-                    reasons.append(f"Fund-flow/bounty-worthiness prefilter not met: score={bounty_score}, material_flow={material_fund_flow}.")
-                if review_score < min_score:
-                    reasons.append(
-                        f"Source-based review priority {review_score} is below --min-score {min_score}."
-                    )
-                if transparency_flags:
-                    reasons.append("Transparency/ownership caveats: " + " ".join(transparency_flags))
-                reasons.append(
-                    "GoPlus-only flags do not trigger DeepSeek because they are often privileged-control "
-                    "or token-trading indicators, not proof of an unprivileged fund-loss path."
-                )
-                result["deepseek_skipped_reason"] = " ".join(reasons)
+                result["deepseek_skipped_reason"] = gate["reason"]
     except (RuntimeError, requests.RequestException, KeyError, ValueError, OSError) as exc:
         result["status"] = "error"
         result["error"] = str(exc)[:1600]
