@@ -6,7 +6,7 @@
 This uses only the credentials already configured in your environment: `ETHERSCAN_API_KEY`, `GOPLUS_API_KEY`, `GOPLUS_API_SECRET`, `NODEREAL_API_KEY`, and `DEEPSEEK_API_KEY`. It does **not** require `BSC_RPC_URL` or another API key. The optional GitHub discovery commands use `GITHUB_TOKEN`.
 
 ```bash
-python hunter.py autopilot --network bsc --pages 3 --limit 50 --verified-limit 100 --max-screened 40 --max-ai-reviews 6 --out hunter-autopilot.json
+python hunter.py autopilot --network bsc --pages 3 --limit 50 --verified-limit 100 --max-deepseek-search-cost-usd 0.01 --max-deepseek-analysis-cost-usd 2.00 --out hunter-autopilot.json
 ```
 
 Hunter discovers new GeckoTerminal pools and newly verified Sourcify contracts, then runs source retrieval, NodeReal/Etherscan/GoPlus context, Slither and first-party source checks. It estimates the candidate's observable value and checks public/external entry points before DeepSeek is shown a compact brief. **DeepSeek only receives a candidate when both conditions pass:**
@@ -19,17 +19,32 @@ The exposure estimate uses the maximum of associated token/pool liquidity and di
 
 For a candidate below $500, a public function reaching a low-level or nonstandard external call is only a *possible* intermediary. DeepSeek must inspect whether an ordinary caller can influence the destination, payload, callback, or transaction being processed. Calls to fixed trusted tokens/oracles/protocols do not automatically deserve a full review.
 
-DeepSeek operates Hunter through five allowlisted commands: discover, screen the next candidate, deep-review the current candidate, skip it, and finish. It cannot run arbitrary shell commands. Each review is saved to the report; a separate checkpoint tracks processed addresses and review usage. If the process stops while a candidate awaits a decision, the next run re-screens that address.
+DeepSeek operates Hunter through five allowlisted commands: discover, screen the next candidate, deep-review the current candidate, skip it, and finish. It cannot run arbitrary shell commands. Only one Hunter action is accepted per priced agent decision, so a single response cannot batch many free screens. Each review is saved to the report; a separate checkpoint tracks processed addresses, token spend and review usage. If the process stops while a candidate awaits a decision, the next run re-screens that address.
+
+### Independent DeepSeek cost budgets
+
+Autopilot now has two independent daily USD budgets, both calculated from the actual token usage returned by each Chat Completions response:
+
+- `--max-deepseek-search-cost-usd 0.01` pays for the DeepSeek agent's discovery and candidate-triage decisions. The agent keeps screening candidates until this budget is reached or the available candidate feed is exhausted.
+- `--max-deepseek-analysis-cost-usd 2.00` is reserved for full contract audits after the agent identifies a worthy unprivileged target. Spending the search budget does not consume this analysis allowance, and spending the analysis budget does not stop further triage.
+
+Both budgets reset at 00:00 UTC and are persisted in the checkpoint across restarts. The checkpoint records daily and lifetime spend, request counts, and recent cost events. Set either budget to `0` for unlimited use. The old count-based controls (`--max-candidates`, `--max-screened`, `--max-screened-per-day`, `--max-ai-reviews`, and `--max-agent-steps`) are optional safety caps; their default is now `0` (unlimited). The source-feed controls `--pages`, `--limit`, and `--verified-limit` still control how many leads are fetched from GeckoTerminal and Sourcify in one discovery cycle.
+
+Costs are estimated using the model name, UTC pricing window, prompt cache-hit/miss token counts and completion tokens reported by DeepSeek. Unknown model aliases are charged at the highest model rate known to this version so they are not silently counted as free. The API only reports exact usage after a response completes, so a final in-flight response can take the spend slightly over a configured budget. When a finite budget is active and token counters are missing, the agent stops rather than assuming the request was free.
+
+The current implementation uses Chat Completions and does not call the separate DeepSeek Search or Fetch APIs. The search budget therefore means the cost of the agent's token-based discovery/triage decisions, not a separate per-search API fee.
 
 ### Run continuously on a server
 
 ```bash
-python hunter.py autopilot --network bsc --continuous --interval-seconds 900 --max-hours 0 --max-screened-per-day 120 --max-ai-reviews 6 --out hunter-autopilot.json
+python hunter.py autopilot --network bsc --continuous --interval-seconds 900 --max-hours 0 --max-deepseek-search-cost-usd 0.01 --max-deepseek-analysis-cost-usd 2.00 --out hunter-autopilot.json
 ```
 
-This checks for fresh candidates every 15 minutes and permits 120 static contract screens and six full DeepSeek reviews per UTC day by default. When either daily cap is reached, continuous mode waits for the next UTC day and then resumes automatically. Increase `--max-screened-per-day` or `--max-ai-reviews` to raise the relevant daily budget; set either to `0` for no cap (unbounded API/AI usage). Set `--max-hours 24` for a one-day service window. Run it under `systemd`, Supervisor, Docker restart policy, or another process manager on a machine with persistent storage. Keep the report and checkpoint files on that storage; do not put your `.env` in GitHub.
+This checks for fresh candidates every 15 minutes. The DeepSeek search and full-analysis budgets are tracked separately per UTC day; when the search-token budget is reached, continuous mode waits for the next UTC day and then resumes. Full analysis stops independently when its own budget is reached, while candidate triage may continue. Set either USD budget to `0` for unlimited use (unbounded API/AI usage). Set `--max-hours 24` for a one-day service window. Run it under `systemd`, Supervisor, Docker restart policy, or another process manager on a machine with persistent storage. Keep the report and checkpoint files on that storage; do not put your `.env` in GitHub.
 
 Use `python hunter.py autopilot --help` to see all limits. The normal one-cycle run is safer for your first run.
+
+The scanner also maintains a persistent local response cache in `.cache/coingecko`: public discovery/source GET requests use short endpoint-specific TTLs, while complete DeepSeek reviews are reusable for 30 days when the same source and review prompt recur. Cache files are derived runtime data, are ignored by Git, and can be deleted safely (the next run will simply refetch/review).
 
 No transaction execution, exploit execution, or live-contract testing is performed. Slither and source heuristics are screening evidence, not proof of an exploitable vulnerability.
 
