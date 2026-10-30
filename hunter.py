@@ -2242,6 +2242,12 @@ def _save_autopilot_state(state):
         "deepseek_search_cost_events": state.get("search_cost_events", [])[-30:],
         "deepseek_analysis_cost_events": state.get("analysis_cost_events", [])[-30:],
         "processed_addresses": sorted(address for _, address in state["processed_addresses"]),
+        "pending_candidates": (state.get("candidates") or [])[state.get("next_index", 0):],
+        "gecko_page_next": state.get("gecko_page_next", 1),
+        "gecko_pass_complete": bool(state.get("gecko_pass_complete")),
+        "sourcify_after_match_id": state.get("sourcify_after_match_id"),
+        "sourcify_pass_complete": bool(state.get("sourcify_pass_complete")),
+        "current_candidate": None,
         "deepseek_reviews_used": state["review_count"],
         "review_day_utc": state["review_day_utc"],
         "deepseek_reviews_today": state["daily_review_count"],
@@ -2592,6 +2598,7 @@ def _execute_autopilot_tool(name, arguments, state):
             current and current.get("status") not in ("reviewed", "agent_skipped")
         )
         has_candidates = state.get("next_index", 0) < len(state.get("candidates") or [])
+        more_source_pages = not (state.get("gecko_pass_complete") and state.get("sourcify_pass_complete"))
         explicit_screen_cap = bool(
             state.get("max_screened", 0) > 0
             and state.get("cycle_screened", 0) >= state["max_screened"]
@@ -2609,12 +2616,12 @@ def _execute_autopilot_tool(name, arguments, state):
             search_budget <= 0
             or state.get("search_cost_today_usd", 0.0) < search_budget
         )
-        if (unresolved_current or has_candidates) and search_budget_remaining and not (
+        if (unresolved_current or has_candidates or more_source_pages) and search_budget_remaining and not (
             explicit_screen_cap or explicit_daily_screen_cap or explicit_review_cap
         ):
             return {
                 "status": "finish_rejected",
-                "reason": "There are still unprocessed candidates and the DeepSeek search budget remains. Continue screening instead of ending early.",
+                "reason": "There are pending candidates or unvisited source pages and the DeepSeek search budget remains. Continue screening instead of ending early.",
             }
         state["finished"] = True
         state["finish_reason"] = str(arguments.get("reason") or "DeepSeek finished the cycle.")[:800]
@@ -2631,7 +2638,7 @@ def run_deepseek_hunter_agent(state, max_steps=0):
     messages = [
         {"role": "system", "content": (
             "You are the Hunter command agent. Use only the five approved Hunter function tools. "
-            "Discover candidates, then repeatedly screen the next candidate. Hunter performs verified-source "
+            "Discover candidates in incremental source pages, then repeatedly screen the next candidate. When a batch is consumed, Hunter fetches the next GeckoTerminal and Sourcify cursor pages. Hunter performs verified-source "
             "retrieval, external context, Slither, source-pattern checks, value estimation and public-entrypoint "
             "checks before a candidate reaches you. Only unprivileged/publicly reachable paths qualify, and a "
             "target needs at least $500 observable value unless there is a credible unprivileged intermediary, "
