@@ -24,10 +24,10 @@ DeepSeek operates Hunter through five allowlisted commands: discover, screen the
 ### Run continuously on a server
 
 ```bash
-python hunter.py autopilot --network bsc --continuous --interval-seconds 900 --max-hours 0 --max-ai-reviews 6 --out hunter-autopilot.json
+python hunter.py autopilot --network bsc --continuous --interval-seconds 900 --max-hours 0 --max-screened-per-day 120 --max-ai-reviews 6 --out hunter-autopilot.json
 ```
 
-This checks for fresh candidates every 15 minutes and permits six full DeepSeek reviews per UTC day by default. Once that daily budget is used, continuous mode waits for the next UTC day and then resumes discovery automatically. Increase `--max-ai-reviews` for a larger daily budget; set it to `0` for unlimited reviews (uncapped token spend). Set `--max-hours 24` for a one-day service window. Run it under `systemd`, Supervisor, Docker restart policy, or another process manager on a machine with persistent storage. Keep the report and checkpoint files on that storage; do not put your `.env` in GitHub.
+This checks for fresh candidates every 15 minutes and permits 120 static contract screens and six full DeepSeek reviews per UTC day by default. When either daily cap is reached, continuous mode waits for the next UTC day and then resumes automatically. Increase `--max-screened-per-day` or `--max-ai-reviews` to raise the relevant daily budget; set either to `0` for no cap (unbounded API/AI usage). Set `--max-hours 24` for a one-day service window. Run it under `systemd`, Supervisor, Docker restart policy, or another process manager on a machine with persistent storage. Keep the report and checkpoint files on that storage; do not put your `.env` in GitHub.
 
 Use `python hunter.py autopilot --help` to see all limits. The normal one-cycle run is safer for your first run.
 
