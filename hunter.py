@@ -2677,6 +2677,17 @@ def run_deepseek_hunter_agent(state, max_steps=0):
                         "status": "ignored_extra_tool_call",
                         "reason": "Only one Hunter action is accepted per priced DeepSeek decision. Request the next action in a new turn.",
                     }
+                elif (
+                    name == "hunter_screen_next_candidate"
+                    and state.get("search_budget_usd", 0.0) > 0
+                    and state.get("search_cost_today_usd", 0.0) >= state["search_budget_usd"]
+                ):
+                    state["finished"] = True
+                    state["finish_reason"] = "deepseek_search_cost_budget_reached"
+                    tool_result = {
+                        "status": "search_cost_budget_reached",
+                        "reason": "The paid decision used the remaining search budget, so no new candidate was screened without budget for its triage decision.",
+                    }
                 else:
                     tool_result = _execute_autopilot_tool(name, arguments, state)
             except (ValueError, TypeError, KeyError) as exc:
@@ -2802,7 +2813,10 @@ def run_autopilot(args):
         )
         search_cost_cap_reached = (
             state["search_budget_usd"] > 0
-            and state["search_cost_today_usd"] >= state["search_budget_usd"]
+            and (
+                state["search_cost_today_usd"] >= state["search_budget_usd"]
+                or state.get("search_cost_tracking_incomplete")
+            )
         )
         if review_cap_reached or screen_cap_reached or search_cost_cap_reached:
             if not args.continuous:
