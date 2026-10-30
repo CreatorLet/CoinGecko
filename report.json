@@ -1,226 +1,54 @@
 !python frontier.py github --days 7 --limit 20 --per-query 10 --out github-discovery.json
 !python frontier.py scan-github --input github-discovery.json --limit 10 --out github-report.json
-ran the above and got the below cell output;
-GitHub discovery warnings (13):
- - rafael-abuawad/permissioned tree: GitHub API rate limit reached (reset epoch 1793293636); set GITHUB_TOKEN
- - humphrey0925/norn tree: GitHub API rate limit reached (reset epoch 1793293636); set GITHUB_TOKEN
- - plainhub/plain-core tree: GitHub API rate limit reached (reset epoch 1793293636); set GITHUB_TOKEN
- - qawacehzewz1u1pr/how-to-understand-arbitrage-bot-execution-parameters tree: GitHub API rate limit reached (reset epoch 1793293636); set GITHUB_TOKEN
- - Calm-harbor611529/how-to-understand-web3-arbitrage-bot-offchain-components tree: GitHub API rate limit reached (reset epoch 1793293636); set GITHUB_TOKEN
- - Badgerprairieluxnu6254/how-to-get-started-with-arbitrage-bot-deployment-steps tree: GitHub API rate limit reached (reset epoch 1793293636); set GITHUB_TOKEN
- - loyalcog479207/how-to-prepare-arbitrage-bot-execution-parameters tree: GitHub API rate limit reached (reset epoch 1793293636); set GITHUB_TOKEN
- - vikingharbordufu4099/how-to-configure-ethereum-arbitrage-bot-cost-awareness tree: GitHub API rate limit reached (reset epoch 1793293636); set GITHUB_TOKEN
-Wrote 12 records to github-discovery.json
-[GitHub scan] lemniscatedev/lemniscate: score=18, signals=3, fund_surfaces=3, files=3, novelty=no_duplicate_detected
-[GitHub scan] rayanx002/Dework-Solidity: score=0, signals=0, fund_surfaces=0, files=5, novelty=no_duplicate_detected
-[GitHub scan] Vasanthdev2004/kitty: score=0, signals=0, fund_surfaces=3, files=2, novelty=no_duplicate_detected
+
+!python frontier.py verified --network bsc --limit 100 --out frontier-verified-bsc.json
+!python frontier.py deployments --network bsc --blocks 300 --limit 200 --out frontier-deployments-bsc.json
+
+!python hunter.py discover --network bsc --pages 2 --limit 50 --out bsc-discovery.json
+!python hunter.py scan --input bsc-discovery.json --min-liquidity 50000 --min-volume 0 --limit 10 --min-score 30 --out bsc-scan-report.json
+Ran the above and got the cell output below;
+Wrote 20 records to github-discovery.json
+[GitHub scan] yushunyu2023/activity-photo-archive: score=0, signals=0, fund_surfaces=0, files=1, novelty=no_duplicate_detected
+[GitHub scan] XyloNet/xylonet: score=0, signals=0, fund_surfaces=3, files=1, novelty=no_duplicate_detected
 [GitHub scan] rushibhosalepro/leash: score=12, signals=1, fund_surfaces=2, files=1, novelty=no_duplicate_detected
-[GitHub scan] Adebisi1111/scrolls: score=0, signals=0, fund_surfaces=2, files=2, novelty=no_duplicate_detected
-[GitHub scan] Daniloko12/bcy0010-ep2-cachipun: score=12, signals=1, fund_surfaces=1, files=1, novelty=no_duplicate_detected
-[GitHub scan] 653366873iuhm-source/bnagent: score=12, signals=1, fund_surfaces=4, files=3, novelty=no_duplicate_detected
-[GitHub scan] moritz-sec/Altexera-Smart-Contract-Audit: score=0, signals=0, fund_surfaces=3, files=1, novelty=no_duplicate_detected
-[GitHub scan] nwachukwuebuka/LENDORA: score=0, signals=0, fund_surfaces=4, files=7, novelty=no_duplicate_detected
+[GitHub scan] Lakshmikanth-3/Tenor: score=0, signals=0, fund_surfaces=3, files=1, novelty=no_duplicate_detected
+[GitHub scan] MaitohAshimHu/solidity-dework: score=0, signals=0, fund_surfaces=1, files=2, novelty=no_duplicate_detected
+[GitHub scan] Kennyvincss/Veritas: score=0, signals=0, fund_surfaces=2, files=1, novelty=no_duplicate_detected
+[GitHub scan] mangekyou-labs/flashstep: score=12, signals=1, fund_surfaces=5, files=6, novelty=no_duplicate_detected
 [GitHub scan] Settled-sbs/ACE-2026-10-25-01: score=18, signals=2, fund_surfaces=2, files=4, novelty=no_duplicate_detected
+[GitHub scan] EqualFiLabs/rooms: score=28, signals=4, fund_surfaces=4, files=21, novelty=no_duplicate_detected
+[GitHub scan] vaultvult/vyper-secure-escrow: score=0, signals=0, fund_surfaces=0, files=1, novelty=no_duplicate_detected
 Wrote 10 records to github-report.json
------------------
+Wrote 100 records to frontier-verified-bsc.json
+ERROR: Set BSC_RPC_URL in your local environment; RPC URLs are not written to reports
+Wrote 40 records to bsc-discovery.json
+Eligible: 2; selected: 2 for static analysis
+Wrote 2 records to bsc-scan-report.json
+bsc 0xbbd48b17e44fc18572ba79f8427858fe11f00553 screened slither=0 source_signals=0 goplus=0 review=0 related_deployments=0 linked_reviews=- 
+bsc 0x7ecbab504951e4b8b9557a1b94e1b5c028dbb348 screened slither=6 source_signals=0 goplus=0 review=6 related_deployments=0 linked_reviews=- 
+
 The github-discovery.json is;
 [
   {
     "source": "github",
-    "full_name": "lemniscatedev/lemniscate",
-    "repository_url": "https://github.com/lemniscatedev/lemniscate",
-    "description": "Everlasting options on Robinhood Chain Stock Tokens",
+    "full_name": "yushunyu2023/activity-photo-archive",
+    "repository_url": "https://github.com/yushunyu2023/activity-photo-archive",
+    "description": "a web3 project, it can provide the ability of uploading pictures and sharing to special guys, and also support the time capsule.",
     "language_tags": [
       "Solidity"
     ],
     "contract_paths": [
       {
-        "path": "contracts/src/AgentRouter.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/EngineHelper.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/FeeRouter.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/LemniscateEngine.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/LemniscatePaymaster.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/LmnsBuyBurn.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/LmnsStaking.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/MarketHours.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/OptionToken.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/OptionTokenFactory.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/PriceGuard.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/Reserve.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/SeriesRegistry.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/UniswapV3HedgeAdapter.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/UniswapV3TwapReference.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/VolOracle.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/WriterPool.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/engine/EngineCore.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/engine/EngineMarkLib.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/engine/EngineOpsLib.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/engine/EngineSellLib.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/engine/EngineStorage.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/engine/EngineTradeLib.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/engine/EngineViewLib.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IAgentRouter.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IAggregatorV3.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IFeeRouter.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IHedgeAdapter.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/ILmnsStaking.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IMarketHours.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IOptionEngine.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IOptionToken.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IPool.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IPriceGuard.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IPriceReference.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IReserve.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/ISeriesRegistry.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IStockToken.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/ISwapRouter02.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IVolOracle.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/interfaces/IWriterVault.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/vaults/CashDownVault.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/vaults/CoveredUpVault.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/vaults/VaultRegistry.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/src/vaults/WriterVault.sol",
+        "path": "src/ActivityPhotoRegistry.sol",
         "language": "Solidity"
       }
     ],
-    "contract_path_count": 45,
+    "contract_path_count": 1,
     "has_anchor_toml": false,
     "has_cargo_toml": false,
-    "created_at": "2026-10-29T16:48:13Z",
-    "pushed_at": "2026-10-29T16:52:20Z",
-    "updated_at": "2026-10-29T16:52:46Z",
+    "created_at": "2026-10-30T06:38:43Z",
+    "pushed_at": "2026-10-30T07:03:49Z",
+    "updated_at": "2026-10-30T07:03:54Z",
     "stars": 0,
     "forks": 0,
     "default_branch": "main",
@@ -230,71 +58,24 @@ The github-discovery.json is;
   },
   {
     "source": "github",
-    "full_name": "rayanx002/Dework-Solidity",
-    "repository_url": "https://github.com/rayanx002/Dework-Solidity",
-    "description": null,
+    "full_name": "XyloNet/xylonet",
+    "repository_url": "https://github.com/XyloNet/xylonet",
+    "description": "The money app on Arc: pay anyone on X in USDC, exchange USDC and EURC, bridge native USDC. Public mirror of the mainnet code.",
     "language_tags": [
       "Solidity"
     ],
     "contract_paths": [
       {
-        "path": "contracts/1_Storage.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/2_Owner.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/3_Ballot.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/Dework.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/types/DeworkTypes.sol",
+        "path": "payx/contracts/src/PayXTipping.sol",
         "language": "Solidity"
       }
     ],
-    "contract_path_count": 5,
+    "contract_path_count": 1,
     "has_anchor_toml": false,
     "has_cargo_toml": false,
-    "created_at": "2026-10-29T16:47:38Z",
-    "pushed_at": "2026-10-29T16:52:32Z",
-    "updated_at": "2026-10-29T16:52:36Z",
-    "stars": 0,
-    "forks": 0,
-    "default_branch": "main",
-    "archived": false,
-    "source_kind": "source_repository",
-    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
-  },
-  {
-    "source": "github",
-    "full_name": "Vasanthdev2004/kitty",
-    "repository_url": "https://github.com/Vasanthdev2004/kitty",
-    "description": null,
-    "language_tags": [
-      "Solidity"
-    ],
-    "contract_paths": [
-      {
-        "path": "contracts/Kitty.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "contracts/PayTogether.sol",
-        "language": "Solidity"
-      }
-    ],
-    "contract_path_count": 2,
-    "has_anchor_toml": false,
-    "has_cargo_toml": false,
-    "created_at": "2026-10-29T16:35:06Z",
-    "pushed_at": "2026-10-29T16:35:18Z",
-    "updated_at": "2026-10-29T16:39:58Z",
+    "created_at": "2026-10-30T06:22:47Z",
+    "pushed_at": "2026-10-30T06:45:55Z",
+    "updated_at": "2026-10-30T06:45:58Z",
     "stars": 0,
     "forks": 0,
     "default_branch": "main",
@@ -320,8 +101,8 @@ The github-discovery.json is;
     "has_anchor_toml": false,
     "has_cargo_toml": false,
     "created_at": "2026-10-29T16:35:05Z",
-    "pushed_at": "2026-10-29T16:45:47Z",
-    "updated_at": "2026-10-29T16:45:52Z",
+    "pushed_at": "2026-10-30T06:29:32Z",
+    "updated_at": "2026-10-30T06:29:35Z",
     "stars": 0,
     "forks": 0,
     "default_branch": "main",
@@ -331,28 +112,67 @@ The github-discovery.json is;
   },
   {
     "source": "github",
-    "full_name": "Adebisi1111/scrolls",
-    "repository_url": "https://github.com/Adebisi1111/scrolls",
+    "full_name": "Lakshmikanth-3/Tenor",
+    "repository_url": "https://github.com/Lakshmikanth-3/Tenor",
     "description": null,
     "language_tags": [
       "Solidity"
     ],
     "contract_paths": [
       {
-        "path": "contracts/ContentPaywall.sol",
+        "path": "contracts/Tenor.sol",
         "language": "Solidity"
       },
       {
-        "path": "contracts/DocumentPaywall.sol",
+        "path": "contracts/adapters/USYCYieldVault.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "contracts/interfaces/IAggregatorV3.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "contracts/interfaces/IYieldVault.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 4,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-28T19:16:48Z",
+    "pushed_at": "2026-10-30T06:38:26Z",
+    "updated_at": "2026-10-30T06:38:30Z",
+    "stars": 0,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "MaitohAshimHu/solidity-dework",
+    "repository_url": "https://github.com/MaitohAshimHu/solidity-dework",
+    "description": null,
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "contracts/Dework.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "contracts/types/DeworkTypes.sol",
         "language": "Solidity"
       }
     ],
     "contract_path_count": 2,
     "has_anchor_toml": false,
     "has_cargo_toml": false,
-    "created_at": "2026-10-29T16:24:06Z",
-    "pushed_at": "2026-10-29T16:24:13Z",
-    "updated_at": "2026-10-29T16:24:19Z",
+    "created_at": "2026-10-28T08:27:57Z",
+    "pushed_at": "2026-10-30T06:25:36Z",
+    "updated_at": "2026-10-30T06:25:40Z",
     "stars": 0,
     "forks": 0,
     "default_branch": "main",
@@ -362,24 +182,24 @@ The github-discovery.json is;
   },
   {
     "source": "github",
-    "full_name": "Daniloko12/bcy0010-ep2-cachipun",
-    "repository_url": "https://github.com/Daniloko12/bcy0010-ep2-cachipun",
+    "full_name": "Kennyvincss/Veritas",
+    "repository_url": "https://github.com/Kennyvincss/Veritas",
     "description": null,
     "language_tags": [
       "Solidity"
     ],
     "contract_paths": [
       {
-        "path": "contracts/Cachipun.sol",
+        "path": "contracts/VeritasEscrow.sol",
         "language": "Solidity"
       }
     ],
     "contract_path_count": 1,
     "has_anchor_toml": false,
     "has_cargo_toml": false,
-    "created_at": "2026-10-29T16:21:41Z",
-    "pushed_at": "2026-10-29T16:30:47Z",
-    "updated_at": "2026-10-29T16:30:51Z",
+    "created_at": "2026-10-26T06:52:58Z",
+    "pushed_at": "2026-10-30T06:26:34Z",
+    "updated_at": "2026-10-30T06:26:38Z",
     "stars": 0,
     "forks": 0,
     "default_branch": "main",
@@ -389,110 +209,60 @@ The github-discovery.json is;
   },
   {
     "source": "github",
-    "full_name": "653366873iuhm-source/bnagent",
-    "repository_url": "https://github.com/653366873iuhm-source/bnagent",
-    "description": null,
+    "full_name": "mangekyou-labs/flashstep",
+    "repository_url": "https://github.com/mangekyou-labs/flashstep",
+    "description": "Prediction market for high trading frequencies",
     "language_tags": [
       "Solidity"
     ],
     "contract_paths": [
       {
-        "path": "src/BnagentMint.sol",
+        "path": "packages/foundry/contracts/IPredictionMarket.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/BnagentToken.sol",
+        "path": "packages/foundry/contracts/PredictionMarket.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/interfaces/IExternal.sol",
+        "path": "packages/foundry/contracts/PredictionMarketToken.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "packages/foundry/contracts/StakeAsset.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "packages/foundry/contracts/ThresholdPots.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "packages/foundry/contracts/UpDownRounds.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "packages/foundry/contracts/readings/BasePoolReader.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "packages/foundry/contracts/readings/IObservationPool.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "packages/foundry/contracts/readings/MarketCapReader.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "packages/foundry/contracts/readings/TickMath.sol",
         "language": "Solidity"
       }
     ],
-    "contract_path_count": 3,
+    "contract_path_count": 10,
     "has_anchor_toml": false,
     "has_cargo_toml": false,
-    "created_at": "2026-10-29T15:41:10Z",
-    "pushed_at": "2026-10-29T16:48:27Z",
-    "updated_at": "2026-10-29T16:48:29Z",
-    "stars": 0,
-    "forks": 0,
-    "default_branch": "main",
-    "archived": false,
-    "source_kind": "source_repository",
-    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
-  },
-  {
-    "source": "github",
-    "full_name": "moritz-sec/Altexera-Smart-Contract-Audit",
-    "repository_url": "https://github.com/moritz-sec/Altexera-Smart-Contract-Audit",
-    "description": null,
-    "language_tags": [
-      "Solidity"
-    ],
-    "contract_paths": [
-      {
-        "path": "contracts/AltexeraSecureVault.sol",
-        "language": "Solidity"
-      }
-    ],
-    "contract_path_count": 1,
-    "has_anchor_toml": false,
-    "has_cargo_toml": false,
-    "created_at": "2026-10-29T15:16:38Z",
-    "pushed_at": "2026-10-29T16:19:56Z",
-    "updated_at": "2026-10-29T16:20:01Z",
-    "stars": 0,
-    "forks": 0,
-    "default_branch": "main",
-    "archived": false,
-    "source_kind": "source_repository",
-    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
-  },
-  {
-    "source": "github",
-    "full_name": "nwachukwuebuka/LENDORA",
-    "repository_url": "https://github.com/nwachukwuebuka/LENDORA",
-    "description": "  This project is a decentralized finance (DeFi) protocol designed to provide lending, borrowing, and token swapping.",
-    "language_tags": [
-      "Solidity"
-    ],
-    "contract_paths": [
-      {
-        "path": "src/Borrowing.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "src/Lending.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "src/PriceFeedOracle.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "src/interfaces/AggregatorV3Interface.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "src/interfaces/IBorrowing.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "src/interfaces/ILending.sol",
-        "language": "Solidity"
-      },
-      {
-        "path": "src/interfaces/IPriceFeedOracle.sol",
-        "language": "Solidity"
-      }
-    ],
-    "contract_path_count": 7,
-    "has_anchor_toml": false,
-    "has_cargo_toml": false,
-    "created_at": "2026-10-26T22:06:12Z",
-    "pushed_at": "2026-10-29T16:42:02Z",
-    "updated_at": "2026-10-29T16:42:07Z",
+    "created_at": "2026-10-26T05:49:17Z",
+    "pushed_at": "2026-10-30T07:05:35Z",
+    "updated_at": "2026-10-30T07:05:40Z",
     "stars": 0,
     "forks": 0,
     "default_branch": "main",
@@ -541,96 +311,168 @@ The github-discovery.json is;
   },
   {
     "source": "github",
-    "full_name": "Addax0924/onchain-tariff",
-    "repository_url": "https://github.com/Addax0924/onchain-tariff",
-    "description": null,
+    "full_name": "EqualFiLabs/rooms",
+    "repository_url": "https://github.com/EqualFiLabs/rooms",
+    "description": "Central shared core for multiple gaming applications",
     "language_tags": [
       "Solidity"
     ],
     "contract_paths": [
       {
-        "path": "src/Governor/FinalGovernor.sol",
+        "path": "src/RoomsDiamond.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/Governor/GovernorDualConsensusLogic.sol",
+        "path": "src/facets/ClaimsFacet.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/Market.sol",
+        "path": "src/facets/DiamondCutFacet.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/Merchant/MerchantBaseUpgradeable.sol",
+        "path": "src/facets/DiamondLoupeFacet.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/Merchant/SimpleMerchantBaseUpgradeable.sol",
+        "path": "src/facets/GovernanceFacet.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/RightsToken/GenesisSeatToken.sol",
+        "path": "src/facets/RevenueFacet.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/RightsToken/ProportionalElection.sol",
+        "path": "src/facets/RoomsFacet.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/RightsToken/SeatToken.sol",
+        "path": "src/facets/RoomsViewFacet.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/RightsToken/SeatTokenFactory.sol",
+        "path": "src/facets/SettlementFacet.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/TradeExecutor.sol",
+        "path": "src/initializers/RoomsInit.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/Vault.sol",
+        "path": "src/interfaces/IClaims.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/interfaces/IMarket.sol",
+        "path": "src/interfaces/IDiamondCut.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/interfaces/IMerchantTradeIn.sol",
+        "path": "src/interfaces/IDiamondLoupe.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/interfaces/IRightsToken.sol",
+        "path": "src/interfaces/IEqualFiDrandRegistry.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/interfaces/ISeatToken.sol",
+        "path": "src/interfaces/IGovernance.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/interfaces/ISeatTokenFactory.sol",
+        "path": "src/interfaces/IOperatorFeeRouter.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/interfaces/ISettlementAsset.sol",
+        "path": "src/interfaces/IRevenue.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/interfaces/ITradeExecutor.sol",
+        "path": "src/interfaces/IRooms.sol",
         "language": "Solidity"
       },
       {
-        "path": "src/settlement/ERC20SettlementAsset.sol",
+        "path": "src/interfaces/IRoomsView.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/interfaces/ISettlement.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibDiamond.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibOperatorFeeRouter.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibReentrancy.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsAccounting.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsBeacon.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsConfig.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsMath.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsOpening.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsOutcome.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsPurchase.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsSettlement.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/libraries/LibRoomsStorage.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/shared/DiamondTypes.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/shared/Errors.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/shared/Events.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/shared/Guarded.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "src/shared/Types.sol",
         "language": "Solidity"
       }
     ],
-    "contract_path_count": 19,
+    "contract_path_count": 37,
     "has_anchor_toml": false,
     "has_cargo_toml": false,
-    "created_at": "2026-10-25T12:57:23Z",
-    "pushed_at": "2026-10-29T16:52:06Z",
-    "updated_at": "2026-10-29T16:52:11Z",
+    "created_at": "2026-10-25T02:20:06Z",
+    "pushed_at": "2026-10-30T06:19:55Z",
+    "updated_at": "2026-10-30T06:19:59Z",
     "stars": 0,
     "forks": 0,
     "default_branch": "main",
@@ -664,18 +506,296 @@ The github-discovery.json is;
     "archived": false,
     "source_kind": "source_repository",
     "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "aquattdabackup/HuiPot",
+    "repository_url": "https://github.com/aquattdabackup/HuiPot",
+    "description": null,
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "contracts/HuiPotGoalPool.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 1,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-24T00:55:11Z",
+    "pushed_at": "2026-10-30T06:19:48Z",
+    "updated_at": "2026-10-30T06:19:52Z",
+    "stars": 0,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "MaxCybOps/persat-finance-arc",
+    "repository_url": "https://github.com/MaxCybOps/persat-finance-arc",
+    "description": "P2P Bitcoin-collateralized lending protocol on Arc.",
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "contracts/PersatDealRegistry.sol",
+        "language": "Solidity"
+      },
+      {
+        "path": "contracts/PersatEscrowVault.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 2,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-23T18:30:27Z",
+    "pushed_at": "2026-10-30T06:55:57Z",
+    "updated_at": "2026-10-30T06:56:01Z",
+    "stars": 0,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "rafael-abuawad/permissioned",
+    "repository_url": "https://github.com/rafael-abuawad/permissioned",
+    "description": "Permissioned stablecoin written in Vyper.",
+    "language_tags": [
+      "Vyper"
+    ],
+    "contract_paths": [
+      {
+        "path": "src/stable.vy",
+        "language": "Vyper"
+      },
+      {
+        "path": "modules/blacklist.vy",
+        "language": "Vyper"
+      }
+    ],
+    "contract_path_count": 2,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-23T01:46:59Z",
+    "pushed_at": "2026-10-23T01:47:04Z",
+    "updated_at": "2026-10-23T01:47:07Z",
+    "stars": 0,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "Calm-harbor611529/how-to-understand-web3-arbitrage-bot-offchain-components",
+    "repository_url": "https://github.com/Calm-harbor611529/how-to-understand-web3-arbitrage-bot-offchain-components",
+    "description": "A video-based guide to understanding the architecture of an arbitrage bot, focusing on the separation of off-chain opportunity search and on-chain execution.",
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "Contract.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 1,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-12T17:23:22Z",
+    "pushed_at": "2026-10-30T07:16:10Z",
+    "updated_at": "2026-10-30T07:16:14Z",
+    "stars": 1,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "Gentlelufdig32826/how-to-configure-arbitrage-bot-execution-parameters",
+    "repository_url": "https://github.com/Gentlelufdig32826/how-to-configure-arbitrage-bot-execution-parameters",
+    "description": "A video-based guide to configuring an Ethereum arbitrage project, focusing on minimum output limits and contract execution parameters.",
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "Contract.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 1,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-12T17:10:08Z",
+    "pushed_at": "2026-10-30T07:16:10Z",
+    "updated_at": "2026-10-30T07:16:14Z",
+    "stars": 1,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "Ravenfinch474713/how-to-configure-uniswap-arbitrage-bot-swap-routes",
+    "repository_url": "https://github.com/Ravenfinch474713/how-to-configure-uniswap-arbitrage-bot-swap-routes",
+    "description": "A video-based guide to configuring an Ethereum arbitrage project, focusing on Uniswap swap routes and token exchange mechanics.",
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "Contract.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 1,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-12T17:09:26Z",
+    "pushed_at": "2026-10-30T07:16:11Z",
+    "updated_at": "2026-10-30T07:16:15Z",
+    "stars": 1,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "brook-focus930321/how-to-configure-arbitrage-bot-deployment-steps",
+    "repository_url": "https://github.com/brook-focus930321/how-to-configure-arbitrage-bot-deployment-steps",
+    "description": "A video-based guide to configuring an Ethereum arbitrage project, focusing on contract deployment steps and transaction handling.",
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "Contract.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 1,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-12T17:09:00Z",
+    "pushed_at": "2026-10-30T07:16:11Z",
+    "updated_at": "2026-10-30T07:16:16Z",
+    "stars": 1,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "vastcoral237329/how-to-launch-web3-arbitrage-bot-offchain-components",
+    "repository_url": "https://github.com/vastcoral237329/how-to-launch-web3-arbitrage-bot-offchain-components",
+    "description": "A video-based guide to launching an arbitrage execution workflow, focusing on the separation of off-chain opportunity search and on-chain execution.",
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "Contract.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 1,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-12T17:07:34Z",
+    "pushed_at": "2026-10-30T07:16:12Z",
+    "updated_at": "2026-10-30T07:16:16Z",
+    "stars": 1,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "Nunafe326504/how-to-launch-ethereum-arbitrage-bot-wallet-setup",
+    "repository_url": "https://github.com/Nunafe326504/how-to-launch-ethereum-arbitrage-bot-wallet-setup",
+    "description": "A video-based guide to launching an arbitrage execution workflow, focusing on wallet connection and Ethereum network preparation.",
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "Contract.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 1,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-12T17:06:12Z",
+    "pushed_at": "2026-10-30T07:16:10Z",
+    "updated_at": "2026-10-30T07:16:14Z",
+    "stars": 1,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
+  },
+  {
+    "source": "github",
+    "full_name": "otter-leap833791/how-to-create-arbitrage-bot-execution-parameters",
+    "repository_url": "https://github.com/otter-leap833791/how-to-create-arbitrage-bot-execution-parameters",
+    "description": "A video-based guide to creating a Solidity arbitrage executor, focusing on minimum output limits and contract execution parameters.",
+    "language_tags": [
+      "Solidity"
+    ],
+    "contract_paths": [
+      {
+        "path": "Contract.sol",
+        "language": "Solidity"
+      }
+    ],
+    "contract_path_count": 1,
+    "has_anchor_toml": false,
+    "has_cargo_toml": false,
+    "created_at": "2026-10-12T17:05:30Z",
+    "pushed_at": "2026-10-30T07:16:10Z",
+    "updated_at": "2026-10-30T07:16:14Z",
+    "stars": 1,
+    "forks": 0,
+    "default_branch": "main",
+    "archived": false,
+    "source_kind": "source_repository",
+    "candidate_evidence": "Recent GitHub repository creation or push plus one or more Solidity/Vyper/Rust source paths; deployment and bounty eligibility are not implied."
   }
 ]
-------------
+----------------
 The github-report.json is;
 [
   {
     "source": "github",
-    "full_name": "lemniscatedev/lemniscate",
-    "repository_url": "https://github.com/lemniscatedev/lemniscate",
-    "description": "Everlasting options on Robinhood Chain Stock Tokens",
-    "created_at": "2026-10-29T16:48:13Z",
-    "pushed_at": "2026-10-29T16:52:20Z",
+    "full_name": "yushunyu2023/activity-photo-archive",
+    "repository_url": "https://github.com/yushunyu2023/activity-photo-archive",
+    "description": "a web3 project, it can provide the ability of uploading pictures and sharing to special guys, and also support the time capsule.",
+    "created_at": "2026-10-30T06:38:43Z",
+    "pushed_at": "2026-10-30T07:03:49Z",
     "created_within_7d": true,
     "pushed_within_3d": true,
     "language_tags": [
@@ -684,204 +804,11 @@ The github-report.json is;
     "stars": 0,
     "files_scanned": [
       {
-        "path": "contracts/src/AgentRouter.sol",
+        "path": "src/ActivityPhotoRegistry.sol",
         "language": "Solidity",
-        "characters": 14008,
-        "source_sha256": "e58186add09835559ab02cdc40a84952f3e7f747b856db61310558da6cfa2e10",
-        "git_blob_sha1": "f3d3847be2d097274021c0d17577a616c5a34d25",
-        "duplicate_of": null
-      },
-      {
-        "path": "contracts/src/EngineHelper.sol",
-        "language": "Solidity",
-        "characters": 21196,
-        "source_sha256": "2cf9196207a29cb4aff5323bfdf008e3b444e06312ef042116b1273d763e7fe9",
-        "git_blob_sha1": "fedb6eb3b479a989cd864893b413b82bf4e07ad8",
-        "duplicate_of": null
-      },
-      {
-        "path": "contracts/src/FeeRouter.sol",
-        "language": "Solidity",
-        "characters": 6817,
-        "source_sha256": "f48dbd9b819f87d9275e5ef4a1e0fe07ef1bf101f50cbfaf7b18cf737c584aa1",
-        "git_blob_sha1": "88ce56561dfb98dc7b06f95371221c7c25160cae",
-        "duplicate_of": null
-      }
-    ],
-    "signals": [
-      {
-        "signal": "low-level-call",
-        "weight": 12,
-        "reason": "Low-level call site: inspect target control, return handling, and reentrancy context.",
-        "path": "contracts/src/AgentRouter.sol",
-        "lines": [
-          243
-        ],
-        "occurrences": 1
-      },
-      {
-        "signal": "assembly",
-        "weight": 6,
-        "reason": "Assembly block: review memory/storage assumptions.",
-        "path": "contracts/src/AgentRouter.sol",
-        "lines": [
-          260,
-          266
-        ],
-        "occurrences": 2
-      },
-      {
-        "signal": "low-level-call",
-        "weight": 12,
-        "reason": "Low-level call site: inspect target control, return handling, and reentrancy context.",
-        "path": "contracts/src/EngineHelper.sol",
-        "lines": [
-          209
-        ],
-        "occurrences": 1
-      }
-    ],
-    "source_signal_score": 18,
-    "fund_handling_signals": [
-      {
-        "surface": "token-transfer",
-        "reason": "Token movement or token-transfer call.",
-        "path": "contracts/src/AgentRouter.sol",
-        "lines": [
-          111,
-          240,
-          252
-        ],
-        "occurrences": 3
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "contracts/src/AgentRouter.sol",
-        "lines": [
-          109,
-          111,
-          165,
-          242,
-          248
-        ],
-        "occurrences": 5
-      },
-      {
-        "surface": "financial-entrypoint",
-        "reason": "Entry point with a financial-operation name.",
-        "path": "contracts/src/EngineHelper.sol",
-        "lines": [
-          375,
-          417
-        ],
-        "occurrences": 2
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "contracts/src/EngineHelper.sol",
-        "lines": [
-          18,
-          79
-        ],
-        "occurrences": 2
-      },
-      {
-        "surface": "token-transfer",
-        "reason": "Token movement or token-transfer call.",
-        "path": "contracts/src/FeeRouter.sol",
-        "lines": [
-          80
-        ],
-        "occurrences": 1
-      },
-      {
-        "surface": "financial-entrypoint",
-        "reason": "Entry point with a financial-operation name.",
-        "path": "contracts/src/FeeRouter.sol",
-        "lines": [
-          103
-        ],
-        "occurrences": 1
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "contracts/src/FeeRouter.sol",
-        "lines": [
-          90
-        ],
-        "occurrences": 1
-      }
-    ],
-    "fund_handling_surface_types": [
-      "balance-or-liability-accounting",
-      "financial-entrypoint",
-      "token-transfer"
-    ],
-    "fund_handling_surface_score": 45,
-    "asset_bearing_code_candidate": true,
-    "repository_source_fingerprint": "fdc4b40d0748ba511248d6704d0278deb6a11d8a2ce8fa2b259f4fa11f6b98ac",
-    "duplicate_source_files": [],
-    "duplicate_source_file_count": 0,
-    "duplicate_repository_of": null,
-    "source_novelty": "no_duplicate_detected",
-    "status": "screened",
-    "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
-  },
-  {
-    "source": "github",
-    "full_name": "rayanx002/Dework-Solidity",
-    "repository_url": "https://github.com/rayanx002/Dework-Solidity",
-    "description": null,
-    "created_at": "2026-10-29T16:47:38Z",
-    "pushed_at": "2026-10-29T16:52:32Z",
-    "created_within_7d": true,
-    "pushed_within_3d": true,
-    "language_tags": [
-      "Solidity"
-    ],
-    "stars": 0,
-    "files_scanned": [
-      {
-        "path": "contracts/1_Storage.sol",
-        "language": "Solidity",
-        "characters": 555,
-        "source_sha256": "851044d0f208446ec8946fc2847f129058e240a821aed42972697d1d77d6d6ee",
-        "git_blob_sha1": "dd1e15d25e783b6eb2149c024787678c663616f7",
-        "duplicate_of": null
-      },
-      {
-        "path": "contracts/2_Owner.sol",
-        "language": "Solidity",
-        "characters": 1652,
-        "source_sha256": "9166a1322b90a3d3aef42a5e1e68f0ecd6886481865211a435af9b853f2d2059",
-        "git_blob_sha1": "7aff9aa3d5c2ac9eec1add0101a061835c056998",
-        "duplicate_of": null
-      },
-      {
-        "path": "contracts/3_Ballot.sol",
-        "language": "Solidity",
-        "characters": 6216,
-        "source_sha256": "a0b9b1de8ae0fe1a127b1825c6472c1e43e8c8b5af6c1652cff27590b11abca8",
-        "git_blob_sha1": "56b215955168a0867388822328104604acdf0772",
-        "duplicate_of": null
-      },
-      {
-        "path": "contracts/Dework.sol",
-        "language": "Solidity",
-        "characters": 2165,
-        "source_sha256": "6b2e9739f3cf14218e633d45534828d2bf11f6bc52ebd0edceca51be914a685b",
-        "git_blob_sha1": "cfa590386f64693a1ea83699f9f9a78734636976",
-        "duplicate_of": null
-      },
-      {
-        "path": "contracts/types/DeworkTypes.sol",
-        "language": "Solidity",
-        "characters": 351,
-        "source_sha256": "40d5b1ea909f4526c03a81ba972219902f815f3b47f8f678c7452d2a28df6211",
-        "git_blob_sha1": "644cb36fd03fb3016f2c9344fee2b17590a97ff8",
+        "characters": 17889,
+        "source_sha256": "e25ae219b9672a2706d39ab486d15eb6d14dbecafcfaa6fa014a162f5eceb26b",
+        "git_blob_sha1": "26d32b37e2de8726333e2b1068c88c45cf17dbc5",
         "duplicate_of": null
       }
     ],
@@ -891,7 +818,7 @@ The github-report.json is;
     "fund_handling_surface_types": [],
     "fund_handling_surface_score": 0,
     "asset_bearing_code_candidate": false,
-    "repository_source_fingerprint": "43be0f12669f10036b543a5edf0161e6bda26cebc303777e2c4cb8eb827e66c2",
+    "repository_source_fingerprint": "700dcf123ac2837090c76674913bbfb648ab8da3b6c3ed97fcfc243f27bbd124",
     "duplicate_source_files": [],
     "duplicate_source_file_count": 0,
     "duplicate_repository_of": null,
@@ -901,11 +828,11 @@ The github-report.json is;
   },
   {
     "source": "github",
-    "full_name": "Vasanthdev2004/kitty",
-    "repository_url": "https://github.com/Vasanthdev2004/kitty",
-    "description": null,
-    "created_at": "2026-10-29T16:35:06Z",
-    "pushed_at": "2026-10-29T16:35:18Z",
+    "full_name": "XyloNet/xylonet",
+    "repository_url": "https://github.com/XyloNet/xylonet",
+    "description": "The money app on Arc: pay anyone on X in USDC, exchange USDC and EURC, bridge native USDC. Public mirror of the mainnet code.",
+    "created_at": "2026-10-30T06:22:47Z",
+    "pushed_at": "2026-10-30T06:45:55Z",
     "created_within_7d": true,
     "pushed_within_3d": true,
     "language_tags": [
@@ -914,19 +841,11 @@ The github-report.json is;
     "stars": 0,
     "files_scanned": [
       {
-        "path": "contracts/Kitty.sol",
+        "path": "payx/contracts/src/PayXTipping.sol",
         "language": "Solidity",
-        "characters": 18418,
-        "source_sha256": "7dbaaa89bc6fdb065f7d567bf4a0205594a473b6b1fbaa23558f4bd3f7924231",
-        "git_blob_sha1": "7b43c4dba38c8b1e744cbd19d62530ed74ce9770",
-        "duplicate_of": null
-      },
-      {
-        "path": "contracts/PayTogether.sol",
-        "language": "Solidity",
-        "characters": 14494,
-        "source_sha256": "41ee6bfc419b4cfe92a1057e0f54bdb9044c845a8a33a1d200a034f13be28c90",
-        "git_blob_sha1": "7fc45be0a80f27f1cb0f10cca95a734528817a69",
+        "characters": 19943,
+        "source_sha256": "6065e2cdc85aa7ed384523d94bd7c6472d5aa82b4a77ec333f844c75ba731d46",
+        "git_blob_sha1": "542d6bb5582fab7e99c4d4d0d06dd2abe858a8cc",
         "duplicate_of": null
       }
     ],
@@ -936,64 +855,40 @@ The github-report.json is;
       {
         "surface": "token-transfer",
         "reason": "Token movement or token-transfer call.",
-        "path": "contracts/Kitty.sol",
+        "path": "payx/contracts/src/PayXTipping.sol",
         "lines": [
-          307,
-          332,
-          357
+          28,
+          227,
+          289,
+          420,
+          452
         ],
-        "occurrences": 3
+        "occurrences": 6
       },
       {
         "surface": "financial-entrypoint",
         "reason": "Entry point with a financial-operation name.",
-        "path": "contracts/Kitty.sol",
+        "path": "payx/contracts/src/PayXTipping.sol",
         "lines": [
-          318
-        ],
-        "occurrences": 1
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "contracts/Kitty.sol",
-        "lines": [
-          306,
-          308
-        ],
-        "occurrences": 2
-      },
-      {
-        "surface": "token-transfer",
-        "reason": "Token movement or token-transfer call.",
-        "path": "contracts/PayTogether.sol",
-        "lines": [
-          162,
-          224,
-          253,
-          282
+          252,
+          371,
+          415,
+          447
         ],
         "occurrences": 4
       },
       {
-        "surface": "financial-entrypoint",
-        "reason": "Entry point with a financial-operation name.",
-        "path": "contracts/PayTogether.sol",
-        "lines": [
-          242
-        ],
-        "occurrences": 1
-      },
-      {
         "surface": "balance-or-liability-accounting",
         "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "contracts/PayTogether.sol",
+        "path": "payx/contracts/src/PayXTipping.sol",
         "lines": [
-          73,
-          223,
-          225
+          23,
+          28,
+          96,
+          97,
+          448
         ],
-        "occurrences": 3
+        "occurrences": 6
       }
     ],
     "fund_handling_surface_types": [
@@ -1003,7 +898,7 @@ The github-report.json is;
     ],
     "fund_handling_surface_score": 45,
     "asset_bearing_code_candidate": true,
-    "repository_source_fingerprint": "27e2706bdafc5c6000b121ff7ba0e498a7db68b8a3862271fce7889c9551f23e",
+    "repository_source_fingerprint": "137acf5d48e628e8e5a421201874ae640b56a1593a528f8bbf948ff9af2293b1",
     "duplicate_source_files": [],
     "duplicate_source_file_count": 0,
     "duplicate_repository_of": null,
@@ -1017,7 +912,7 @@ The github-report.json is;
     "repository_url": "https://github.com/rushibhosalepro/leash",
     "description": null,
     "created_at": "2026-10-29T16:35:05Z",
-    "pushed_at": "2026-10-29T16:45:47Z",
+    "pushed_at": "2026-10-30T06:29:32Z",
     "created_within_7d": true,
     "pushed_within_3d": true,
     "language_tags": [
@@ -1087,11 +982,11 @@ The github-report.json is;
   },
   {
     "source": "github",
-    "full_name": "Adebisi1111/scrolls",
-    "repository_url": "https://github.com/Adebisi1111/scrolls",
+    "full_name": "Lakshmikanth-3/Tenor",
+    "repository_url": "https://github.com/Lakshmikanth-3/Tenor",
     "description": null,
-    "created_at": "2026-10-29T16:24:06Z",
-    "pushed_at": "2026-10-29T16:24:13Z",
+    "created_at": "2026-10-28T19:16:48Z",
+    "pushed_at": "2026-10-30T06:38:26Z",
     "created_within_7d": true,
     "pushed_within_3d": true,
     "language_tags": [
@@ -1100,19 +995,11 @@ The github-report.json is;
     "stars": 0,
     "files_scanned": [
       {
-        "path": "contracts/ContentPaywall.sol",
+        "path": "contracts/Tenor.sol",
         "language": "Solidity",
-        "characters": 4703,
-        "source_sha256": "f7059219e6fa5bf0c3caeea51c32be3499dade00b17827178cb66f623a3b2912",
-        "git_blob_sha1": "a16a558481e9bb92e655107fd6ac31d56b22c0c8",
-        "duplicate_of": null
-      },
-      {
-        "path": "contracts/DocumentPaywall.sol",
-        "language": "Solidity",
-        "characters": 2648,
-        "source_sha256": "34c8f0a1542d2ca99cab14c1678ec04949daacc9f482f565209cbfe8f6ad79d2",
-        "git_blob_sha1": "cc0d44c657c2bbdf5e97d14883f2e438ce4b9907",
+        "characters": 41043,
+        "source_sha256": "cc9047377f489b8077e67ec09ffe8d989fa46ddd39d3438897020f5f584e961b",
+        "git_blob_sha1": "a74c8b93ac044ecc769839fc1f4d480e105876d5",
         "duplicate_of": null
       }
     ],
@@ -1122,39 +1009,158 @@ The github-report.json is;
       {
         "surface": "token-transfer",
         "reason": "Token movement or token-transfer call.",
-        "path": "contracts/ContentPaywall.sol",
+        "path": "contracts/Tenor.sol",
         "lines": [
-          90,
-          91
+          452,
+          476,
+          483,
+          824
         ],
-        "occurrences": 2
+        "occurrences": 4
       },
       {
         "surface": "financial-entrypoint",
         "reason": "Entry point with a financial-operation name.",
-        "path": "contracts/ContentPaywall.sol",
+        "path": "contracts/Tenor.sol",
         "lines": [
-          82,
-          104
+          311,
+          345,
+          413,
+          434,
+          450
+        ],
+        "occurrences": 14
+      },
+      {
+        "surface": "balance-or-liability-accounting",
+        "reason": "Balance, reserve, supply, or liability accounting reference.",
+        "path": "contracts/Tenor.sol",
+        "lines": [
+          20,
+          395,
+          397,
+          417,
+          419
+        ],
+        "occurrences": 8
+      }
+    ],
+    "fund_handling_surface_types": [
+      "balance-or-liability-accounting",
+      "financial-entrypoint",
+      "token-transfer"
+    ],
+    "fund_handling_surface_score": 45,
+    "asset_bearing_code_candidate": true,
+    "repository_source_fingerprint": "bc42fad321ef5be4db1cfc6948aac652c23a05a98dcc0117b33096bf2413d399",
+    "duplicate_source_files": [],
+    "duplicate_source_file_count": 0,
+    "duplicate_repository_of": null,
+    "source_novelty": "no_duplicate_detected",
+    "status": "screened",
+    "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
+  },
+  {
+    "source": "github",
+    "full_name": "MaitohAshimHu/solidity-dework",
+    "repository_url": "https://github.com/MaitohAshimHu/solidity-dework",
+    "description": null,
+    "created_at": "2026-10-28T08:27:57Z",
+    "pushed_at": "2026-10-30T06:25:36Z",
+    "created_within_7d": true,
+    "pushed_within_3d": true,
+    "language_tags": [
+      "Solidity"
+    ],
+    "stars": 0,
+    "files_scanned": [
+      {
+        "path": "contracts/Dework.sol",
+        "language": "Solidity",
+        "characters": 8380,
+        "source_sha256": "2e0da3780ebbf52352ee8afcb3c691feecf16feecdcd640c23c13ba1b49d6f39",
+        "git_blob_sha1": "00842b8266f960e3ead8582f6670ada45fb9cf7a",
+        "duplicate_of": null
+      },
+      {
+        "path": "contracts/types/DeworkTypes.sol",
+        "language": "Solidity",
+        "characters": 753,
+        "source_sha256": "1044c5bc9c4ecc3b0c40ca1e64008de52b15dec503d6e550b40be97cc883824e",
+        "git_blob_sha1": "6426386e8db9c1203446eb43676c614d3cc4b47e",
+        "duplicate_of": null
+      }
+    ],
+    "signals": [],
+    "source_signal_score": 0,
+    "fund_handling_signals": [
+      {
+        "surface": "financial-entrypoint",
+        "reason": "Entry point with a financial-operation name.",
+        "path": "contracts/Dework.sol",
+        "lines": [
+          184,
+          202
         ],
         "occurrences": 2
-      },
+      }
+    ],
+    "fund_handling_surface_types": [
+      "financial-entrypoint"
+    ],
+    "fund_handling_surface_score": 15,
+    "asset_bearing_code_candidate": false,
+    "repository_source_fingerprint": "719d592ec69765ab11553749289391df565a4ca08b92a71347ba9b71a90274a0",
+    "duplicate_source_files": [],
+    "duplicate_source_file_count": 0,
+    "duplicate_repository_of": null,
+    "source_novelty": "no_duplicate_detected",
+    "status": "screened",
+    "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
+  },
+  {
+    "source": "github",
+    "full_name": "Kennyvincss/Veritas",
+    "repository_url": "https://github.com/Kennyvincss/Veritas",
+    "description": null,
+    "created_at": "2026-10-26T06:52:58Z",
+    "pushed_at": "2026-10-30T06:26:34Z",
+    "created_within_7d": true,
+    "pushed_within_3d": true,
+    "language_tags": [
+      "Solidity"
+    ],
+    "stars": 0,
+    "files_scanned": [
+      {
+        "path": "contracts/VeritasEscrow.sol",
+        "language": "Solidity",
+        "characters": 7585,
+        "source_sha256": "c5c791282735581b98d0d5edb2053abbe88aeb41b5435f4bf445310cf721aca4",
+        "git_blob_sha1": "03942d5296da6479c4a9711c698301f4a4f010ea",
+        "duplicate_of": null
+      }
+    ],
+    "signals": [],
+    "source_signal_score": 0,
+    "fund_handling_signals": [
       {
         "surface": "token-transfer",
         "reason": "Token movement or token-transfer call.",
-        "path": "contracts/DocumentPaywall.sol",
+        "path": "contracts/VeritasEscrow.sol",
         "lines": [
-          68,
-          69
+          112,
+          149,
+          166
         ],
-        "occurrences": 2
+        "occurrences": 3
       },
       {
         "surface": "financial-entrypoint",
         "reason": "Entry point with a financial-operation name.",
-        "path": "contracts/DocumentPaywall.sol",
+        "path": "contracts/VeritasEscrow.sol",
         "lines": [
-          56
+          138
         ],
         "occurrences": 1
       }
@@ -1165,7 +1171,7 @@ The github-report.json is;
     ],
     "fund_handling_surface_score": 30,
     "asset_bearing_code_candidate": true,
-    "repository_source_fingerprint": "db324ad0395d19bf5f41b4ca52e080f8c648bad6f0149f311b69c9417727407b",
+    "repository_source_fingerprint": "1721834eedde666dc98a619bc0ecbc9e69073d7de3fdeb85a9a679d23ea4a02d",
     "duplicate_source_files": [],
     "duplicate_source_file_count": 0,
     "duplicate_repository_of": null,
@@ -1175,11 +1181,11 @@ The github-report.json is;
   },
   {
     "source": "github",
-    "full_name": "Daniloko12/bcy0010-ep2-cachipun",
-    "repository_url": "https://github.com/Daniloko12/bcy0010-ep2-cachipun",
-    "description": null,
-    "created_at": "2026-10-29T16:21:41Z",
-    "pushed_at": "2026-10-29T16:30:47Z",
+    "full_name": "mangekyou-labs/flashstep",
+    "repository_url": "https://github.com/mangekyou-labs/flashstep",
+    "description": "Prediction market for high trading frequencies",
+    "created_at": "2026-10-26T05:49:17Z",
+    "pushed_at": "2026-10-30T07:05:35Z",
     "created_within_7d": true,
     "pushed_within_3d": true,
     "language_tags": [
@@ -1188,11 +1194,51 @@ The github-report.json is;
     "stars": 0,
     "files_scanned": [
       {
-        "path": "contracts/Cachipun.sol",
+        "path": "packages/foundry/contracts/IPredictionMarket.sol",
         "language": "Solidity",
-        "characters": 13020,
-        "source_sha256": "a6b999298c7c2a7b65c944de19a2c0f3276f6d9075c69083790a8c5cd71f0416",
-        "git_blob_sha1": "9c29e6d7476fd689ced2dbefdde826cf660b8a97",
+        "characters": 4259,
+        "source_sha256": "44df326410afc6a1810083e572a871de40436fe51a770332a99ee7a778d9a255",
+        "git_blob_sha1": "c098e0ed95824c10906a3c3233425948b6640ffe",
+        "duplicate_of": null
+      },
+      {
+        "path": "packages/foundry/contracts/PredictionMarket.sol",
+        "language": "Solidity",
+        "characters": 9228,
+        "source_sha256": "bb0011642c7e32acebd492407985b3766d24dfaed85d884b47ae45ae4a9ba743",
+        "git_blob_sha1": "31c8d4b1defd2862a90a55edb5ad8c35b1c5de47",
+        "duplicate_of": null
+      },
+      {
+        "path": "packages/foundry/contracts/PredictionMarketToken.sol",
+        "language": "Solidity",
+        "characters": 1711,
+        "source_sha256": "58c69dcde316a460362de43eea80ab4d5cc679fc39ccac0ba73d47238e3e3408",
+        "git_blob_sha1": "f3095116a94a5e2e261bfdac920eefad53bab955",
+        "duplicate_of": null
+      },
+      {
+        "path": "packages/foundry/contracts/StakeAsset.sol",
+        "language": "Solidity",
+        "characters": 2465,
+        "source_sha256": "7c14d5a80723366d7c1283b7664c4d82c83c4ee1c0ff44533d0ae105297a9fbe",
+        "git_blob_sha1": "c84c684bc95bcd7cba914e6ecab7ff5a45631cd6",
+        "duplicate_of": null
+      },
+      {
+        "path": "packages/foundry/contracts/ThresholdPots.sol",
+        "language": "Solidity",
+        "characters": 20217,
+        "source_sha256": "4f2ae3e44861464f4e678612d35ea9cabd067fe86f89514de7f45e0f2826688b",
+        "git_blob_sha1": "dae497686d2c83a7c5b82c5cd72c3d30c427c8e9",
+        "duplicate_of": null
+      },
+      {
+        "path": "packages/foundry/contracts/UpDownRounds.sol",
+        "language": "Solidity",
+        "characters": 23073,
+        "source_sha256": "5b5a1da9141a77ee15772c79854ee3c95dfb346ae6ab4d649640523454a55fad",
+        "git_blob_sha1": "95acb810052cf8b77441416314baf659a3c8b2ed",
         "duplicate_of": null
       }
     ],
@@ -1201,466 +1247,168 @@ The github-report.json is;
         "signal": "low-level-call",
         "weight": 12,
         "reason": "Low-level call site: inspect target control, return handling, and reentrancy context.",
-        "path": "contracts/Cachipun.sol",
+        "path": "packages/foundry/contracts/StakeAsset.sol",
         "lines": [
-          222,
-          280
+          41
         ],
-        "occurrences": 2
+        "occurrences": 1
       }
     ],
     "source_signal_score": 12,
     "fund_handling_signals": [
       {
-        "surface": "native-value-transfer",
-        "reason": "Native asset transfer or value-bearing external call.",
-        "path": "contracts/Cachipun.sol",
-        "lines": [
-          222,
-          280
-        ],
-        "occurrences": 2
-      }
-    ],
-    "fund_handling_surface_types": [
-      "native-value-transfer"
-    ],
-    "fund_handling_surface_score": 15,
-    "asset_bearing_code_candidate": false,
-    "repository_source_fingerprint": "c886b020ffab0d4306e9af81b9fb823c380856f229f595f8a3273a0e21f389d5",
-    "duplicate_source_files": [],
-    "duplicate_source_file_count": 0,
-    "duplicate_repository_of": null,
-    "source_novelty": "no_duplicate_detected",
-    "status": "screened",
-    "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
-  },
-  {
-    "source": "github",
-    "full_name": "653366873iuhm-source/bnagent",
-    "repository_url": "https://github.com/653366873iuhm-source/bnagent",
-    "description": null,
-    "created_at": "2026-10-29T15:41:10Z",
-    "pushed_at": "2026-10-29T16:48:27Z",
-    "created_within_7d": true,
-    "pushed_within_3d": true,
-    "language_tags": [
-      "Solidity"
-    ],
-    "stars": 0,
-    "files_scanned": [
-      {
-        "path": "src/BnagentMint.sol",
-        "language": "Solidity",
-        "characters": 28593,
-        "source_sha256": "82d3d47c2c9fdcfb5bc65c592bcfdeb09d1f97172f2d37d22d2ec2cb2944efcd",
-        "git_blob_sha1": "f8c0897712cf9c010f6a8a3319b70d3802a81bd1",
-        "duplicate_of": null
-      },
-      {
-        "path": "src/BnagentToken.sol",
-        "language": "Solidity",
-        "characters": 5788,
-        "source_sha256": "1233198d8d3aa1b87831dfe75684c68bf80682141eb5cf0fe9db5ac7eaa2c1c0",
-        "git_blob_sha1": "d4f5fd94ab04af65fdb703152e891caf3a328155",
-        "duplicate_of": null
-      },
-      {
-        "path": "src/interfaces/IExternal.sol",
-        "language": "Solidity",
-        "characters": 1987,
-        "source_sha256": "6c998e8c7bdaf8ab341f578cc8acb991062ab25e51db3bbf1b67e7d1ebcc5ded",
-        "git_blob_sha1": "f5b3e8c03ea9e854b8e8f2c876566e1db24f2288",
-        "duplicate_of": null
-      }
-    ],
-    "signals": [
-      {
-        "signal": "low-level-call",
-        "weight": 12,
-        "reason": "Low-level call site: inspect target control, return handling, and reentrancy context.",
-        "path": "src/BnagentMint.sol",
-        "lines": [
-          465,
-          670
-        ],
-        "occurrences": 2
-      }
-    ],
-    "source_signal_score": 12,
-    "fund_handling_signals": [
-      {
-        "surface": "token-transfer",
-        "reason": "Token movement or token-transfer call.",
-        "path": "src/BnagentMint.sol",
-        "lines": [
-          385,
-          447,
-          531,
-          580,
-          604
-        ],
-        "occurrences": 8
-      },
-      {
-        "surface": "native-value-transfer",
-        "reason": "Native asset transfer or value-bearing external call.",
-        "path": "src/BnagentMint.sol",
-        "lines": [
-          465,
-          670
-        ],
-        "occurrences": 2
-      },
-      {
         "surface": "financial-entrypoint",
         "reason": "Entry point with a financial-operation name.",
-        "path": "src/BnagentMint.sol",
+        "path": "packages/foundry/contracts/IPredictionMarket.sol",
         "lines": [
-          247,
-          253,
-          264,
-          375,
-          398
-        ],
-        "occurrences": 14
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "src/BnagentMint.sol",
-        "lines": [
-          221,
-          227,
-          227,
-          227,
-          228
-        ],
-        "occurrences": 22
-      },
-      {
-        "surface": "financial-entrypoint",
-        "reason": "Entry point with a financial-operation name.",
-        "path": "src/BnagentToken.sol",
-        "lines": [
-          62,
-          74
-        ],
-        "occurrences": 2
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "src/BnagentToken.sol",
-        "lines": [
-          63
-        ],
-        "occurrences": 1
-      },
-      {
-        "surface": "financial-entrypoint",
-        "reason": "Entry point with a financial-operation name.",
-        "path": "src/interfaces/IExternal.sol",
-        "lines": [
-          15,
-          16,
-          23,
-          24
-        ],
-        "occurrences": 4
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "src/interfaces/IExternal.sol",
-        "lines": [
-          18
-        ],
-        "occurrences": 1
-      }
-    ],
-    "fund_handling_surface_types": [
-      "balance-or-liability-accounting",
-      "financial-entrypoint",
-      "native-value-transfer",
-      "token-transfer"
-    ],
-    "fund_handling_surface_score": 60,
-    "asset_bearing_code_candidate": true,
-    "repository_source_fingerprint": "038a9ed37954f8a069d329a2ddd7f7226fd5046ff1cdb6ec96d97d3a99a6a5e9",
-    "duplicate_source_files": [],
-    "duplicate_source_file_count": 0,
-    "duplicate_repository_of": null,
-    "source_novelty": "no_duplicate_detected",
-    "status": "screened",
-    "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
-  },
-  {
-    "source": "github",
-    "full_name": "moritz-sec/Altexera-Smart-Contract-Audit",
-    "repository_url": "https://github.com/moritz-sec/Altexera-Smart-Contract-Audit",
-    "description": null,
-    "created_at": "2026-10-29T15:16:38Z",
-    "pushed_at": "2026-10-29T16:19:56Z",
-    "created_within_7d": true,
-    "pushed_within_3d": true,
-    "language_tags": [
-      "Solidity"
-    ],
-    "stars": 0,
-    "files_scanned": [
-      {
-        "path": "contracts/AltexeraSecureVault.sol",
-        "language": "Solidity",
-        "characters": 23341,
-        "source_sha256": "feb210046e11cc4c6904ff1b57011daa9c8b94eeef094bfdd93f3d0f8065d675",
-        "git_blob_sha1": "2c921d78c6ded595ec5e2bab2e97f088fc6426a0",
-        "duplicate_of": null
-      }
-    ],
-    "signals": [],
-    "source_signal_score": 0,
-    "fund_handling_signals": [
-      {
-        "surface": "token-transfer",
-        "reason": "Token movement or token-transfer call.",
-        "path": "contracts/AltexeraSecureVault.sol",
-        "lines": [
-          198,
-          227,
-          268,
-          284,
-          298
-        ],
-        "occurrences": 6
-      },
-      {
-        "surface": "financial-entrypoint",
-        "reason": "Entry point with a financial-operation name.",
-        "path": "contracts/AltexeraSecureVault.sol",
-        "lines": [
-          16,
-          20,
-          24,
-          25,
-          218
-        ],
-        "occurrences": 11
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "contracts/AltexeraSecureVault.sol",
-        "lines": [
-          311,
-          339
-        ],
-        "occurrences": 2
-      }
-    ],
-    "fund_handling_surface_types": [
-      "balance-or-liability-accounting",
-      "financial-entrypoint",
-      "token-transfer"
-    ],
-    "fund_handling_surface_score": 45,
-    "asset_bearing_code_candidate": true,
-    "repository_source_fingerprint": "83f0a11d21884af84b60ed69cdb13f5ece5631da424e0b2855238e77044c717e",
-    "duplicate_source_files": [],
-    "duplicate_source_file_count": 0,
-    "duplicate_repository_of": null,
-    "source_novelty": "no_duplicate_detected",
-    "status": "screened",
-    "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
-  },
-  {
-    "source": "github",
-    "full_name": "nwachukwuebuka/LENDORA",
-    "repository_url": "https://github.com/nwachukwuebuka/LENDORA",
-    "description": "  This project is a decentralized finance (DeFi) protocol designed to provide lending, borrowing, and token swapping.",
-    "created_at": "2026-10-26T22:06:12Z",
-    "pushed_at": "2026-10-29T16:42:02Z",
-    "created_within_7d": true,
-    "pushed_within_3d": true,
-    "language_tags": [
-      "Solidity"
-    ],
-    "stars": 0,
-    "files_scanned": [
-      {
-        "path": "src/Borrowing.sol",
-        "language": "Solidity",
-        "characters": 14405,
-        "source_sha256": "c4588274b5cd7874653d6a8476d72d4db75041e65622ac6560076234b7cc125c",
-        "git_blob_sha1": "5e8aed1f81c9b0b52f2e956a77144ac3582b8d5f",
-        "duplicate_of": null
-      },
-      {
-        "path": "src/Lending.sol",
-        "language": "Solidity",
-        "characters": 13874,
-        "source_sha256": "af6bb550c206400653f6739edcb24981181895db4aaa4145489b6b10fe6354d0",
-        "git_blob_sha1": "aea9841f2ed7fe1e81be5c870c9c39417de61c66",
-        "duplicate_of": null
-      },
-      {
-        "path": "src/PriceFeedOracle.sol",
-        "language": "Solidity",
-        "characters": 5965,
-        "source_sha256": "6bef61130270abe96f87198cd64db853902802a14a8281f777176a7485cb45a3",
-        "git_blob_sha1": "06d35e8cd8f0519ccaac792fe587fdd2de14d47e",
-        "duplicate_of": null
-      },
-      {
-        "path": "src/interfaces/AggregatorV3Interface.sol",
-        "language": "Solidity",
-        "characters": 445,
-        "source_sha256": "8b3a34a42649720bc84ee5238c9a09b5a0503b2b77f4b0ee469e033848c46347",
-        "git_blob_sha1": "ededb1077c0c872755769be3acd449140a3443ee",
-        "duplicate_of": null
-      },
-      {
-        "path": "src/interfaces/IBorrowing.sol",
-        "language": "Solidity",
-        "characters": 866,
-        "source_sha256": "c2efd71c361d15581c8a5bbc9f8ab028a10d13a3e32c5cf7b97afe3afd0c034b",
-        "git_blob_sha1": "b5ca8a4196e17c2087a1e597a64840e8e8dd2b38",
-        "duplicate_of": null
-      },
-      {
-        "path": "src/interfaces/ILending.sol",
-        "language": "Solidity",
-        "characters": 1115,
-        "source_sha256": "9c6c0ab79b6a2dcb3127d932593d8f069cccc5d1da29d558578b386554f3af13",
-        "git_blob_sha1": "1cfcc617bf0eea9feeaf37ac507bbe8541402ec3",
-        "duplicate_of": null
-      },
-      {
-        "path": "src/interfaces/IPriceFeedOracle.sol",
-        "language": "Solidity",
-        "characters": 1288,
-        "source_sha256": "f55c37b4a8922249a79877d8ad4752fb249248946198be8fd01b5753c268d166",
-        "git_blob_sha1": "a3dadad0aa543bba6adb4edd2cd1bcaa3dd68342",
-        "duplicate_of": null
-      }
-    ],
-    "signals": [],
-    "source_signal_score": 0,
-    "fund_handling_signals": [
-      {
-        "surface": "token-transfer",
-        "reason": "Token movement or token-transfer call.",
-        "path": "src/Borrowing.sol",
-        "lines": [
-          162,
-          291,
-          340,
-          341
-        ],
-        "occurrences": 4
-      },
-      {
-        "surface": "financial-entrypoint",
-        "reason": "Entry point with a financial-operation name.",
-        "path": "src/Borrowing.sol",
-        "lines": [
-          145,
-          165,
-          272,
-          294
+          51,
+          52,
+          54,
+          57
         ],
         "occurrences": 4
       },
       {
         "surface": "external-protocol-call",
         "reason": "Call to a protocol or market operation.",
-        "path": "src/Borrowing.sol",
+        "path": "packages/foundry/contracts/IPredictionMarket.sol",
         "lines": [
-          165,
-          294
-        ],
-        "occurrences": 2
-      },
-      {
-        "surface": "token-transfer",
-        "reason": "Token movement or token-transfer call.",
-        "path": "src/Lending.sol",
-        "lines": [
-          137,
-          156,
-          214,
-          248
-        ],
-        "occurrences": 4
-      },
-      {
-        "surface": "financial-entrypoint",
-        "reason": "Entry point with a financial-operation name.",
-        "path": "src/Lending.sol",
-        "lines": [
-          140,
-          209,
-          217,
-          251,
-          281
-        ],
-        "occurrences": 6
-      },
-      {
-        "surface": "balance-or-liability-accounting",
-        "reason": "Balance, reserve, supply, or liability accounting reference.",
-        "path": "src/Lending.sol",
-        "lines": [
-          367
+          52
         ],
         "occurrences": 1
       },
       {
         "surface": "financial-entrypoint",
         "reason": "Entry point with a financial-operation name.",
-        "path": "src/interfaces/IBorrowing.sol",
+        "path": "packages/foundry/contracts/PredictionMarket.sol",
         "lines": [
-          9,
-          11,
-          16,
-          18,
-          24
+          92,
+          101,
+          119,
+          146
         ],
-        "occurrences": 5
+        "occurrences": 4
+      },
+      {
+        "surface": "balance-or-liability-accounting",
+        "reason": "Balance, reserve, supply, or liability accounting reference.",
+        "path": "packages/foundry/contracts/PredictionMarket.sol",
+        "lines": [
+          189,
+          191,
+          249,
+          250
+        ],
+        "occurrences": 4
       },
       {
         "surface": "external-protocol-call",
         "reason": "Call to a protocol or market operation.",
-        "path": "src/interfaces/IBorrowing.sol",
+        "path": "packages/foundry/contracts/PredictionMarket.sol",
         "lines": [
-          11,
-          18
+          101
         ],
-        "occurrences": 2
+        "occurrences": 1
+      },
+      {
+        "surface": "token-transfer",
+        "reason": "Token movement or token-transfer call.",
+        "path": "packages/foundry/contracts/PredictionMarketToken.sol",
+        "lines": [
+          36,
+          40,
+          43,
+          47
+        ],
+        "occurrences": 4
+      },
+      {
+        "surface": "native-value-transfer",
+        "reason": "Native asset transfer or value-bearing external call.",
+        "path": "packages/foundry/contracts/PredictionMarketToken.sol",
+        "lines": [
+          40
+        ],
+        "occurrences": 1
       },
       {
         "surface": "financial-entrypoint",
         "reason": "Entry point with a financial-operation name.",
-        "path": "src/interfaces/ILending.sol",
+        "path": "packages/foundry/contracts/PredictionMarketToken.sol",
         "lines": [
-          17,
-          19,
-          29,
+          22,
+          29
+        ],
+        "occurrences": 2
+      },
+      {
+        "surface": "token-transfer",
+        "reason": "Token movement or token-transfer call.",
+        "path": "packages/foundry/contracts/StakeAsset.sol",
+        "lines": [
+          32,
+          47
+        ],
+        "occurrences": 2
+      },
+      {
+        "surface": "native-value-transfer",
+        "reason": "Native asset transfer or value-bearing external call.",
+        "path": "packages/foundry/contracts/StakeAsset.sol",
+        "lines": [
+          41
+        ],
+        "occurrences": 1
+      },
+      {
+        "surface": "balance-or-liability-accounting",
+        "reason": "Balance, reserve, supply, or liability accounting reference.",
+        "path": "packages/foundry/contracts/StakeAsset.sol",
+        "lines": [
           31,
-          33
+          33,
+          45,
+          46,
+          48
+        ],
+        "occurrences": 6
+      },
+      {
+        "surface": "financial-entrypoint",
+        "reason": "Entry point with a financial-operation name.",
+        "path": "packages/foundry/contracts/ThresholdPots.sol",
+        "lines": [
+          263,
+          293,
+          305,
+          343,
+          352
         ],
         "occurrences": 5
+      },
+      {
+        "surface": "balance-or-liability-accounting",
+        "reason": "Balance, reserve, supply, or liability accounting reference.",
+        "path": "packages/foundry/contracts/ThresholdPots.sol",
+        "lines": [
+          69,
+          75,
+          282,
+          282
+        ],
+        "occurrences": 4
       }
     ],
     "fund_handling_surface_types": [
       "balance-or-liability-accounting",
       "external-protocol-call",
       "financial-entrypoint",
+      "native-value-transfer",
       "token-transfer"
     ],
-    "fund_handling_surface_score": 60,
+    "fund_handling_surface_score": 75,
     "asset_bearing_code_candidate": true,
-    "repository_source_fingerprint": "2b4800d2da897ed23fcb45b19564ce9e13e8c85433c23bb02029ec918b11f4a2",
+    "repository_source_fingerprint": "b5ff4e3e8ce1c007207c86488f874030371cc7fc288420c0b46d4faf2a99aff4",
     "duplicate_source_files": [],
     "duplicate_source_file_count": 0,
     "duplicate_repository_of": null,
@@ -1774,5 +1522,2706 @@ The github-report.json is;
     "source_novelty": "no_duplicate_detected",
     "status": "screened",
     "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
+  },
+  {
+    "source": "github",
+    "full_name": "EqualFiLabs/rooms",
+    "repository_url": "https://github.com/EqualFiLabs/rooms",
+    "description": "Central shared core for multiple gaming applications",
+    "created_at": "2026-10-25T02:20:06Z",
+    "pushed_at": "2026-10-30T06:19:55Z",
+    "created_within_7d": true,
+    "pushed_within_3d": true,
+    "language_tags": [
+      "Solidity"
+    ],
+    "stars": 0,
+    "files_scanned": [
+      {
+        "path": "src/RoomsDiamond.sol",
+        "language": "Solidity",
+        "characters": 1482,
+        "source_sha256": "d19d86a90ad036c80cb46faba1a633edf046915f6a07fd69330ff95ac8eadf97",
+        "git_blob_sha1": "97f04996c137c0bbe61a939f81a847c868945094",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/facets/ClaimsFacet.sol",
+        "language": "Solidity",
+        "characters": 3643,
+        "source_sha256": "36e7552d4110f300798efe8dd4747942220f3523b55d78d69174d318a0046c34",
+        "git_blob_sha1": "5577c078eee92ad1ccb72ee5ae31d1e3d802b6ed",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/facets/DiamondCutFacet.sol",
+        "language": "Solidity",
+        "characters": 587,
+        "source_sha256": "aea3676e06d8bbe0a3a2509ec3270bfda6ef489cbfb62744e7d6a4ed165ec6b8",
+        "git_blob_sha1": "1514031f53ab109440ab9838f091d855a3c26949",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/facets/DiamondLoupeFacet.sol",
+        "language": "Solidity",
+        "characters": 1141,
+        "source_sha256": "b7b4c12729885ece9e6a7fdf1686e43d7c31da7177919ff2230c0f7962eabc1f",
+        "git_blob_sha1": "03e6eb05257555c21d9e2aa31832c8e9f338119d",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/facets/GovernanceFacet.sol",
+        "language": "Solidity",
+        "characters": 4438,
+        "source_sha256": "9cbc0ea05414136a6acd90750af6784c45016589c79fd36c6218f559a0e2f958",
+        "git_blob_sha1": "9aac2f2c9cd92b4916a5a64cab0b9c4af4949e8b",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/facets/RevenueFacet.sol",
+        "language": "Solidity",
+        "characters": 4159,
+        "source_sha256": "c40d01661bc4beda53e33f803bf74281f8bf4ebbe1cba13d9dc115e5379c6060",
+        "git_blob_sha1": "8b9fd04403e5a577e33bcb6fabffe412bdab7d4f",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/facets/RoomsFacet.sol",
+        "language": "Solidity",
+        "characters": 2500,
+        "source_sha256": "37d4b08bd941da5d0f3203468fb06c926fff854b2173bdfa3f26738c5157883b",
+        "git_blob_sha1": "271348eb0049257b7e9427e76068d8e312f41505",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/facets/RoomsViewFacet.sol",
+        "language": "Solidity",
+        "characters": 5571,
+        "source_sha256": "8f5d64c91634dc94e5d3a9d4f8d37b67f4b8b5cdc813e84bcd145d8679ceef38",
+        "git_blob_sha1": "e8be3ff15abee1bac9063ecf874671dd1238cb8e",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/facets/SettlementFacet.sol",
+        "language": "Solidity",
+        "characters": 1627,
+        "source_sha256": "7363e49cd4f74b7efc10a70096cacb66df5c7ac0f5551af489422f12d8616890",
+        "git_blob_sha1": "9f557f1297e911552d899e4add1f73de5f2567c3",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/initializers/RoomsInit.sol",
+        "language": "Solidity",
+        "characters": 2903,
+        "source_sha256": "dcd4585b9a8292f50999e067ef3d549eeb271bb278d2b4c4a5f973c3c94c3b89",
+        "git_blob_sha1": "d36cea8f9e61704d47765485eeed0434d10ba738",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IClaims.sol",
+        "language": "Solidity",
+        "characters": 355,
+        "source_sha256": "bbeb245e39a072efe9c0d2a98a2ea6508e88b39280a8b704909dfe1fb13f8b0d",
+        "git_blob_sha1": "4e0dd6c94c54550c162bc45443e7e9be8d8a1ff7",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IDiamondCut.sol",
+        "language": "Solidity",
+        "characters": 313,
+        "source_sha256": "9b4c6c6400f1ffda61412e57b27f310b95202a795027d31e93859ad8d75f2e58",
+        "git_blob_sha1": "6050716528dc64d29ec406ea9365e65a041e7610",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IDiamondLoupe.sol",
+        "language": "Solidity",
+        "characters": 445,
+        "source_sha256": "1cdf78527b20f1cc48afd6c5b4a79b9a3ad33d15a4ededf4cc3f0e47a81b1972",
+        "git_blob_sha1": "b9bb45cde82918dae59da395f4eb84d8820d6bdf",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IEqualFiDrandRegistry.sol",
+        "language": "Solidity",
+        "characters": 1564,
+        "source_sha256": "7c81fe4ce5f7106a50d4df8b4625383adc5ca9a4a6b3f243fd28d2c8bab346ba",
+        "git_blob_sha1": "4194ec299e02fa6e550d54145aeca2a9824eae14",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IGovernance.sol",
+        "language": "Solidity",
+        "characters": 1163,
+        "source_sha256": "8344b46be757e3bd1fc7a2f497217cebd6cc757f1a392169d39b694cb640068e",
+        "git_blob_sha1": "bd5fd1a845bd624c0565ef4d7a6c1c9038dfa62a",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IOperatorFeeRouter.sol",
+        "language": "Solidity",
+        "characters": 442,
+        "source_sha256": "d8cbbbaab7cde005e68a4fb8ce77f4cfe24013bc6a6cd3d90b40df7d5c3ddf54",
+        "git_blob_sha1": "3aa5bb3eba2a0609642bc4180f3e130bf179d865",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IRevenue.sol",
+        "language": "Solidity",
+        "characters": 564,
+        "source_sha256": "2b1a3699ecb0944a7b984b4b9b17e62aeb634a5f36bdac5925dc5353ef501f10",
+        "git_blob_sha1": "aa7dbfb31ed9ec58302db18a4e557ed5dbeeb5d0",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IRooms.sol",
+        "language": "Solidity",
+        "characters": 331,
+        "source_sha256": "3ac54d345df391d0d65f5ace92825132044d8b8e1e4ba56a4e20da16e78f1312",
+        "git_blob_sha1": "c0f3d40a779e8ec23ce468ba4d604ffd765dd556",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/IRoomsView.sol",
+        "language": "Solidity",
+        "characters": 2231,
+        "source_sha256": "2db5bc9cd6fa4c65c42fb3bd80d3ee030ec181ae5d67a428a3dcb3b85196b1c7",
+        "git_blob_sha1": "e9ef906a1c27393b429db34f5aa84e20dbc99bff",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/interfaces/ISettlement.sol",
+        "language": "Solidity",
+        "characters": 210,
+        "source_sha256": "5206e78a8b757a7036a604ff64cf98b02c6dc5d974bbc07878d0a34c39304b1f",
+        "git_blob_sha1": "d051c90ea5469feef6d78fcc875ab40cfc7f04e3",
+        "duplicate_of": null
+      },
+      {
+        "path": "src/libraries/LibDiamond.sol",
+        "language": "Solidity",
+        "characters": 6724,
+        "source_sha256": "a96d2634202f18df7b6aedb730727f79332137251b8f1a930bf3df6672752967",
+        "git_blob_sha1": "fce939b1df6962d29748e51d4fe3a12d84b99d36",
+        "duplicate_of": null
+      }
+    ],
+    "signals": [
+      {
+        "signal": "assembly",
+        "weight": 6,
+        "reason": "Assembly block: review memory/storage assumptions.",
+        "path": "src/RoomsDiamond.sol",
+        "lines": [
+          31
+        ],
+        "occurrences": 1
+      },
+      {
+        "signal": "low-level-call",
+        "weight": 12,
+        "reason": "Low-level call site: inspect target control, return handling, and reentrancy context.",
+        "path": "src/facets/RevenueFacet.sol",
+        "lines": [
+          81
+        ],
+        "occurrences": 1
+      },
+      {
+        "signal": "initializer",
+        "weight": 10,
+        "reason": "Initializer entry point: verify one-time initialization and access control.",
+        "path": "src/initializers/RoomsInit.sol",
+        "lines": [
+          24
+        ],
+        "occurrences": 1
+      },
+      {
+        "signal": "assembly",
+        "weight": 6,
+        "reason": "Assembly block: review memory/storage assumptions.",
+        "path": "src/libraries/LibDiamond.sol",
+        "lines": [
+          32
+        ],
+        "occurrences": 1
+      }
+    ],
+    "source_signal_score": 28,
+    "fund_handling_signals": [
+      {
+        "surface": "token-transfer",
+        "reason": "Token movement or token-transfer call.",
+        "path": "src/facets/ClaimsFacet.sol",
+        "lines": [
+          38,
+          71
+        ],
+        "occurrences": 2
+      },
+      {
+        "surface": "financial-entrypoint",
+        "reason": "Entry point with a financial-operation name.",
+        "path": "src/facets/ClaimsFacet.sol",
+        "lines": [
+          21,
+          59,
+          78
+        ],
+        "occurrences": 3
+      },
+      {
+        "surface": "token-transfer",
+        "reason": "Token movement or token-transfer call.",
+        "path": "src/facets/RevenueFacet.sol",
+        "lines": [
+          57
+        ],
+        "occurrences": 1
+      },
+      {
+        "surface": "native-value-transfer",
+        "reason": "Native asset transfer or value-bearing external call.",
+        "path": "src/facets/RevenueFacet.sol",
+        "lines": [
+          81
+        ],
+        "occurrences": 1
+      },
+      {
+        "surface": "balance-or-liability-accounting",
+        "reason": "Balance, reserve, supply, or liability accounting reference.",
+        "path": "src/facets/RoomsFacet.sol",
+        "lines": [
+          23
+        ],
+        "occurrences": 1
+      },
+      {
+        "surface": "financial-entrypoint",
+        "reason": "Entry point with a financial-operation name.",
+        "path": "src/facets/RoomsViewFacet.sol",
+        "lines": [
+          59,
+          63,
+          127
+        ],
+        "occurrences": 3
+      },
+      {
+        "surface": "financial-entrypoint",
+        "reason": "Entry point with a financial-operation name.",
+        "path": "src/facets/SettlementFacet.sol",
+        "lines": [
+          23
+        ],
+        "occurrences": 1
+      },
+      {
+        "surface": "financial-entrypoint",
+        "reason": "Entry point with a financial-operation name.",
+        "path": "src/interfaces/IClaims.sol",
+        "lines": [
+          5,
+          7
+        ],
+        "occurrences": 2
+      },
+      {
+        "surface": "financial-entrypoint",
+        "reason": "Entry point with a financial-operation name.",
+        "path": "src/interfaces/IRoomsView.sol",
+        "lines": [
+          22,
+          23,
+          38
+        ],
+        "occurrences": 3
+      },
+      {
+        "surface": "financial-entrypoint",
+        "reason": "Entry point with a financial-operation name.",
+        "path": "src/interfaces/ISettlement.sol",
+        "lines": [
+          5
+        ],
+        "occurrences": 1
+      }
+    ],
+    "fund_handling_surface_types": [
+      "balance-or-liability-accounting",
+      "financial-entrypoint",
+      "native-value-transfer",
+      "token-transfer"
+    ],
+    "fund_handling_surface_score": 60,
+    "asset_bearing_code_candidate": true,
+    "repository_source_fingerprint": "252905fbbc3b9c4525e623119dcd32f5b9c4afca1d57a2e59b9f4e77155b72c0",
+    "duplicate_source_files": [],
+    "duplicate_source_file_count": 0,
+    "duplicate_repository_of": null,
+    "source_novelty": "no_duplicate_detected",
+    "status": "screened",
+    "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
+  },
+  {
+    "source": "github",
+    "full_name": "vaultvult/vyper-secure-escrow",
+    "repository_url": "https://github.com/vaultvult/vyper-secure-escrow",
+    "description": "A gas-optimized, reentrancy-safe escrow contract written in Vyper.",
+    "created_at": "2026-10-24T11:58:44Z",
+    "pushed_at": "2026-10-24T12:13:47Z",
+    "created_within_7d": true,
+    "pushed_within_3d": false,
+    "language_tags": [
+      "Vyper"
+    ],
+    "stars": 0,
+    "files_scanned": [
+      {
+        "path": "SecureEscrow.vy",
+        "language": "Vyper",
+        "characters": 1185,
+        "source_sha256": "fde2212db7c541bc182ed318c548318b7842a7e247f1c3423e1c2b0e09772bf1",
+        "git_blob_sha1": "d637dff7aa768ab91865e6b42a7a137020d70441",
+        "duplicate_of": null
+      }
+    ],
+    "signals": [],
+    "source_signal_score": 0,
+    "fund_handling_signals": [],
+    "fund_handling_surface_types": [],
+    "fund_handling_surface_score": 0,
+    "asset_bearing_code_candidate": false,
+    "repository_source_fingerprint": "b1eea089b8a199c7b7b872915c5f173c1fdffaf216171840b289d8d3ccbb5b45",
+    "duplicate_source_files": [],
+    "duplicate_source_file_count": 0,
+    "duplicate_repository_of": null,
+    "source_novelty": "no_duplicate_detected",
+    "status": "screened",
+    "note": "Heuristic triage only; repository source is not proof of deployment, ownership, scope eligibility, or a confirmed vulnerability."
+  }
+]
+---------------
+The frontier-verified-bsc.json is;
+[
+  {
+    "network": "bsc",
+    "address": "0x1a97Ce56bd127FEaD7D6c9a14d1A2C8A500D60bD",
+    "base_token": "0x1a97Ce56bd127FEaD7D6c9a14d1A2C8A500D60bD",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T07:16:56Z",
+    "sourcify_match_id": "57647937",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x1a97Ce56bd127FEaD7D6c9a14d1A2C8A500D60bD/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x724214247235ae96D8EC6DA18B9f9790C106E6ea",
+    "base_token": "0x724214247235ae96D8EC6DA18B9f9790C106E6ea",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T07:16:46Z",
+    "sourcify_match_id": "57647921",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x724214247235ae96D8EC6DA18B9f9790C106E6ea/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xFF47FebcdbA7A9c263999c7FAaC60D01ddA0ee15",
+    "base_token": "0xFF47FebcdbA7A9c263999c7FAaC60D01ddA0ee15",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T07:12:22Z",
+    "sourcify_match_id": "57647539",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xFF47FebcdbA7A9c263999c7FAaC60D01ddA0ee15/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xE3649A4E147b8685c279B24D270084D9c2bEDc86",
+    "base_token": "0xE3649A4E147b8685c279B24D270084D9c2bEDc86",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T07:12:04Z",
+    "sourcify_match_id": "57647517",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xE3649A4E147b8685c279B24D270084D9c2bEDc86/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x2E83De7a7E8Db5B985E6Ad118D2E32DD13bB9B1F",
+    "base_token": "0x2E83De7a7E8Db5B985E6Ad118D2E32DD13bB9B1F",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T07:03:36Z",
+    "sourcify_match_id": "57646784",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x2E83De7a7E8Db5B985E6Ad118D2E32DD13bB9B1F/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x14Cf82f306379483d8fd7dd95aa3c0cC2252B5BF",
+    "base_token": "0x14Cf82f306379483d8fd7dd95aa3c0cC2252B5BF",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T07:03:21Z",
+    "sourcify_match_id": "57646754",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x14Cf82f306379483d8fd7dd95aa3c0cC2252B5BF/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x3Cf5580b91cC809CECEf9bA784e8Ff28ada90768",
+    "base_token": "0x3Cf5580b91cC809CECEf9bA784e8Ff28ada90768",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T07:03:17Z",
+    "sourcify_match_id": "57646749",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x3Cf5580b91cC809CECEf9bA784e8Ff28ada90768/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x26Ff17358573cbda71A7f9F89Cd95710ECdca377",
+    "base_token": "0x26Ff17358573cbda71A7f9F89Cd95710ECdca377",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:53:01Z",
+    "sourcify_match_id": "57645854",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x26Ff17358573cbda71A7f9F89Cd95710ECdca377/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x765c592c2E100E8548482a1a2b2C32d747bF5ba2",
+    "base_token": "0x765c592c2E100E8548482a1a2b2C32d747bF5ba2",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:51:46Z",
+    "sourcify_match_id": "57645735",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x765c592c2E100E8548482a1a2b2C32d747bF5ba2/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x5Ba2cca329912bb9344825dE2faB35BA5A48743b",
+    "base_token": "0x5Ba2cca329912bb9344825dE2faB35BA5A48743b",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:43Z",
+    "sourcify_match_id": "57645440",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x5Ba2cca329912bb9344825dE2faB35BA5A48743b/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x603fc142BFeF4e8e86972b04e9629Bc971d7970A",
+    "base_token": "0x603fc142BFeF4e8e86972b04e9629Bc971d7970A",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:24Z",
+    "sourcify_match_id": "57645410",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x603fc142BFeF4e8e86972b04e9629Bc971d7970A/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xB95531Eb859c556B7c9521a99B7b67BA12519564",
+    "base_token": "0xB95531Eb859c556B7c9521a99B7b67BA12519564",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:23Z",
+    "sourcify_match_id": "57645408",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xB95531Eb859c556B7c9521a99B7b67BA12519564/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xFe6528596e62ffe0a50EE52A155df39989b1BE9A",
+    "base_token": "0xFe6528596e62ffe0a50EE52A155df39989b1BE9A",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:23Z",
+    "sourcify_match_id": "57645406",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xFe6528596e62ffe0a50EE52A155df39989b1BE9A/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xEd2d22020f7Af2BDda44D4f0A4a4c31F01A6ef58",
+    "base_token": "0xEd2d22020f7Af2BDda44D4f0A4a4c31F01A6ef58",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:22Z",
+    "sourcify_match_id": "57645404",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xEd2d22020f7Af2BDda44D4f0A4a4c31F01A6ef58/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x88cD0b3059EC276B73acFd55c97a8265015A0Db1",
+    "base_token": "0x88cD0b3059EC276B73acFd55c97a8265015A0Db1",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:22Z",
+    "sourcify_match_id": "57645403",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x88cD0b3059EC276B73acFd55c97a8265015A0Db1/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x8c962498d0ADB034089e002dc3b57260EeE8Fb63",
+    "base_token": "0x8c962498d0ADB034089e002dc3b57260EeE8Fb63",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:22Z",
+    "sourcify_match_id": "57645402",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x8c962498d0ADB034089e002dc3b57260EeE8Fb63/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9aC5fEC232f2aC457a242b166c9CC7aaf30aCc2f",
+    "base_token": "0x9aC5fEC232f2aC457a242b166c9CC7aaf30aCc2f",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:21Z",
+    "sourcify_match_id": "57645399",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9aC5fEC232f2aC457a242b166c9CC7aaf30aCc2f/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xE7105AFbE91dbd247A79D3305c91BeD151635DfD",
+    "base_token": "0xE7105AFbE91dbd247A79D3305c91BeD151635DfD",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:20Z",
+    "sourcify_match_id": "57645396",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xE7105AFbE91dbd247A79D3305c91BeD151635DfD/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x50fA99B15Da42C2469137966aBDbfbbBdAEc1B6F",
+    "base_token": "0x50fA99B15Da42C2469137966aBDbfbbBdAEc1B6F",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:20Z",
+    "sourcify_match_id": "57645395",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x50fA99B15Da42C2469137966aBDbfbbBdAEc1B6F/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x8f108Fd15B80814584f79862f209f306b2e888fC",
+    "base_token": "0x8f108Fd15B80814584f79862f209f306b2e888fC",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:19Z",
+    "sourcify_match_id": "57645393",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x8f108Fd15B80814584f79862f209f306b2e888fC/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x58C96735342e5c2e8Ba542E4aAc2a1500Cc769C6",
+    "base_token": "0x58C96735342e5c2e8Ba542E4aAc2a1500Cc769C6",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:19Z",
+    "sourcify_match_id": "57645391",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x58C96735342e5c2e8Ba542E4aAc2a1500Cc769C6/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x263D87E3B4a284B6E4B0b80F7945B6095113ffE6",
+    "base_token": "0x263D87E3B4a284B6E4B0b80F7945B6095113ffE6",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:18Z",
+    "sourcify_match_id": "57645390",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x263D87E3B4a284B6E4B0b80F7945B6095113ffE6/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x34fD32AeeBC96aD2D402cc750Eb4EA9Ca7194080",
+    "base_token": "0x34fD32AeeBC96aD2D402cc750Eb4EA9Ca7194080",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:18Z",
+    "sourcify_match_id": "57645388",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x34fD32AeeBC96aD2D402cc750Eb4EA9Ca7194080/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xA8fE7f530a56d153933BC311f8A35cF6ee9a4eDE",
+    "base_token": "0xA8fE7f530a56d153933BC311f8A35cF6ee9a4eDE",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:18Z",
+    "sourcify_match_id": "57645387",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xA8fE7f530a56d153933BC311f8A35cF6ee9a4eDE/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x1d53DCCC46D2B0E9FB8B8f066EAa6e0f46a54344",
+    "base_token": "0x1d53DCCC46D2B0E9FB8B8f066EAa6e0f46a54344",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:17Z",
+    "sourcify_match_id": "57645386",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x1d53DCCC46D2B0E9FB8B8f066EAa6e0f46a54344/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x8D292d7d423bc48B5F1954F2C0440CFbe9DabD7d",
+    "base_token": "0x8D292d7d423bc48B5F1954F2C0440CFbe9DabD7d",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:17Z",
+    "sourcify_match_id": "57645385",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x8D292d7d423bc48B5F1954F2C0440CFbe9DabD7d/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9d26C9FDb4D600740144219aF14809e4C4315Ccf",
+    "base_token": "0x9d26C9FDb4D600740144219aF14809e4C4315Ccf",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:17Z",
+    "sourcify_match_id": "57645384",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9d26C9FDb4D600740144219aF14809e4C4315Ccf/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x951B86Dc309B26fbB149606647Cc12F64f21FFFf",
+    "base_token": "0x951B86Dc309B26fbB149606647Cc12F64f21FFFf",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:16Z",
+    "sourcify_match_id": "57645383",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x951B86Dc309B26fbB149606647Cc12F64f21FFFf/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x6EAD179909942F9dC748A74349fBF827fB9D37Cd",
+    "base_token": "0x6EAD179909942F9dC748A74349fBF827fB9D37Cd",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:16Z",
+    "sourcify_match_id": "57645381",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x6EAD179909942F9dC748A74349fBF827fB9D37Cd/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xb28fD197e7dea51b6EcCa5dB7888cB988ebA9aC2",
+    "base_token": "0xb28fD197e7dea51b6EcCa5dB7888cB988ebA9aC2",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:48:15Z",
+    "sourcify_match_id": "57645379",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xb28fD197e7dea51b6EcCa5dB7888cB988ebA9aC2/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x63bDCF4807E0f46eD8facEd905362354E41261e0",
+    "base_token": "0x63bDCF4807E0f46eD8facEd905362354E41261e0",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:46:35Z",
+    "sourcify_match_id": "57645213",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x63bDCF4807E0f46eD8facEd905362354E41261e0/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x98cCA5607B896034804369d476Afcb46Cd1f0423",
+    "base_token": "0x98cCA5607B896034804369d476Afcb46Cd1f0423",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:45:53Z",
+    "sourcify_match_id": "57645145",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x98cCA5607B896034804369d476Afcb46Cd1f0423/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x01445EF9E1EE1C18141d81438094BcC3322768d8",
+    "base_token": "0x01445EF9E1EE1C18141d81438094BcC3322768d8",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:45:52Z",
+    "sourcify_match_id": "57645143",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x01445EF9E1EE1C18141d81438094BcC3322768d8/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xD3F355ddBA7c162d356296dD49d9ab0A2C19E439",
+    "base_token": "0xD3F355ddBA7c162d356296dD49d9ab0A2C19E439",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:45:46Z",
+    "sourcify_match_id": "57645139",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xD3F355ddBA7c162d356296dD49d9ab0A2C19E439/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x4FAE9569f1D5645fCFf4D9E732BeE6D5eb1b7777",
+    "base_token": "0x4FAE9569f1D5645fCFf4D9E732BeE6D5eb1b7777",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:37:47Z",
+    "sourcify_match_id": "57644404",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x4FAE9569f1D5645fCFf4D9E732BeE6D5eb1b7777/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9dB46d4A7F4B3a6a97797CaAfE8a7bf4F3dAF310",
+    "base_token": "0x9dB46d4A7F4B3a6a97797CaAfE8a7bf4F3dAF310",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:21:33Z",
+    "sourcify_match_id": "57642810",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9dB46d4A7F4B3a6a97797CaAfE8a7bf4F3dAF310/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xa43f2673E7e78c683a7aE4D27C139cA936183d97",
+    "base_token": "0xa43f2673E7e78c683a7aE4D27C139cA936183d97",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:09:53Z",
+    "sourcify_match_id": "57641792",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xa43f2673E7e78c683a7aE4D27C139cA936183d97/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x50A827f002dDbD1f87ce0098118a556294a6D524",
+    "base_token": "0x50A827f002dDbD1f87ce0098118a556294a6D524",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T06:00:16Z",
+    "sourcify_match_id": "57640915",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x50A827f002dDbD1f87ce0098118a556294a6D524/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x5F102d26927813D53d5295Fbc353ed2100000000",
+    "base_token": "0x5F102d26927813D53d5295Fbc353ed2100000000",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:59:56Z",
+    "sourcify_match_id": "57640871",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x5F102d26927813D53d5295Fbc353ed2100000000/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xF5aE5d4a2748B2D97c679C965733c7fF1A725481",
+    "base_token": "0xF5aE5d4a2748B2D97c679C965733c7fF1A725481",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:59:51Z",
+    "sourcify_match_id": "57640868",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xF5aE5d4a2748B2D97c679C965733c7fF1A725481/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xcaDEF34998fbA17a6e772D9B18443515f9B0e647",
+    "base_token": "0xcaDEF34998fbA17a6e772D9B18443515f9B0e647",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:42:09Z",
+    "sourcify_match_id": "57639402",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xcaDEF34998fbA17a6e772D9B18443515f9B0e647/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x7189E63D9e5740Ad082cA8A0680c64A0cc5996EA",
+    "base_token": "0x7189E63D9e5740Ad082cA8A0680c64A0cc5996EA",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:42:06Z",
+    "sourcify_match_id": "57639397",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x7189E63D9e5740Ad082cA8A0680c64A0cc5996EA/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xdF5119afd0055c52d9FB5064751136800D2FC1FB",
+    "base_token": "0xdF5119afd0055c52d9FB5064751136800D2FC1FB",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:41:55Z",
+    "sourcify_match_id": "57639377",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xdF5119afd0055c52d9FB5064751136800D2FC1FB/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x1c699e88E6afb8E71AdB986d1a63Df9D6070A51b",
+    "base_token": "0x1c699e88E6afb8E71AdB986d1a63Df9D6070A51b",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:39:46Z",
+    "sourcify_match_id": "57639194",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x1c699e88E6afb8E71AdB986d1a63Df9D6070A51b/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9579CFe8074CF6Dd9c2F0Fa7819F977E03f44379",
+    "base_token": "0x9579CFe8074CF6Dd9c2F0Fa7819F977E03f44379",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:39:15Z",
+    "sourcify_match_id": "57639155",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9579CFe8074CF6Dd9c2F0Fa7819F977E03f44379/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xA0Fc609fDAE406Ebc8e280e55efd67B57f53c4e5",
+    "base_token": "0xA0Fc609fDAE406Ebc8e280e55efd67B57f53c4e5",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:35:57Z",
+    "sourcify_match_id": "57638858",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xA0Fc609fDAE406Ebc8e280e55efd67B57f53c4e5/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9731E5fD27a73d7666aC03Ba26c0B459871A9Fe3",
+    "base_token": "0x9731E5fD27a73d7666aC03Ba26c0B459871A9Fe3",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:31:59Z",
+    "sourcify_match_id": "57638505",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9731E5fD27a73d7666aC03Ba26c0B459871A9Fe3/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x12C21403D78ae8f7118C9F841606FB432fFc8A29",
+    "base_token": "0x12C21403D78ae8f7118C9F841606FB432fFc8A29",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:31:13Z",
+    "sourcify_match_id": "57638443",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x12C21403D78ae8f7118C9F841606FB432fFc8A29/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x8a8e8b784b759c3Ee9AD7b31893954ce4B8Dc1EA",
+    "base_token": "0x8a8e8b784b759c3Ee9AD7b31893954ce4B8Dc1EA",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:31:11Z",
+    "sourcify_match_id": "57638439",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x8a8e8b784b759c3Ee9AD7b31893954ce4B8Dc1EA/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x1b4A4B90Ff1A3eAa0C32f69C13264C97B6B6764C",
+    "base_token": "0x1b4A4B90Ff1A3eAa0C32f69C13264C97B6B6764C",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:29:32Z",
+    "sourcify_match_id": "57638294",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x1b4A4B90Ff1A3eAa0C32f69C13264C97B6B6764C/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xEFd6cBB0965951201Dc80Aa5Cd714aAe3b837cea",
+    "base_token": "0xEFd6cBB0965951201Dc80Aa5Cd714aAe3b837cea",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:26:49Z",
+    "sourcify_match_id": "57638052",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xEFd6cBB0965951201Dc80Aa5Cd714aAe3b837cea/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x68aE970D760A91D8759AE5bffd308E024dbF996c",
+    "base_token": "0x68aE970D760A91D8759AE5bffd308E024dbF996c",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "match",
+    "creation_match": "match",
+    "runtime_match": "match",
+    "verified_at": "2026-10-30T05:24:59Z",
+    "sourcify_match_id": "57637894",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x68aE970D760A91D8759AE5bffd308E024dbF996c/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x93bD0868d53B1C8632D809049D822125DBB0AE46",
+    "base_token": "0x93bD0868d53B1C8632D809049D822125DBB0AE46",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:24:38Z",
+    "sourcify_match_id": "57637852",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x93bD0868d53B1C8632D809049D822125DBB0AE46/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xb72C9916B412e0B2e2B624c56E83991F7c78c6eA",
+    "base_token": "0xb72C9916B412e0B2e2B624c56E83991F7c78c6eA",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:24:28Z",
+    "sourcify_match_id": "57637844",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xb72C9916B412e0B2e2B624c56E83991F7c78c6eA/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x8bB9871592075E0322545b4BB3876C30ECec7f4c",
+    "base_token": "0x8bB9871592075E0322545b4BB3876C30ECec7f4c",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:23:43Z",
+    "sourcify_match_id": "57637764",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x8bB9871592075E0322545b4BB3876C30ECec7f4c/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xd1d565d82c04fDF52988ec314b46547833538279",
+    "base_token": "0xd1d565d82c04fDF52988ec314b46547833538279",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:20:22Z",
+    "sourcify_match_id": "57637477",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xd1d565d82c04fDF52988ec314b46547833538279/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x992d6fB2E02c6091CD1d5093D065Eac80fAD0768",
+    "base_token": "0x992d6fB2E02c6091CD1d5093D065Eac80fAD0768",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "match",
+    "creation_match": "match",
+    "runtime_match": "match",
+    "verified_at": "2026-10-30T05:17:16Z",
+    "sourcify_match_id": "57637200",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x992d6fB2E02c6091CD1d5093D065Eac80fAD0768/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xB283738efA5aA174887e4481547B45825217d825",
+    "base_token": "0xB283738efA5aA174887e4481547B45825217d825",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:11:47Z",
+    "sourcify_match_id": "57636733",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xB283738efA5aA174887e4481547B45825217d825/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x65E851fC4014De9399360bAdDd9fC09C9779DB44",
+    "base_token": "0x65E851fC4014De9399360bAdDd9fC09C9779DB44",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:11:03Z",
+    "sourcify_match_id": "57636666",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x65E851fC4014De9399360bAdDd9fC09C9779DB44/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x2f5D2E12888844D9aD10d744b8efa574b40Dfb1b",
+    "base_token": "0x2f5D2E12888844D9aD10d744b8efa574b40Dfb1b",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:04:01Z",
+    "sourcify_match_id": "57636012",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x2f5D2E12888844D9aD10d744b8efa574b40Dfb1b/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x01D400c86DB22a639733D71FA447f5Af6277e307",
+    "base_token": "0x01D400c86DB22a639733D71FA447f5Af6277e307",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:00:33Z",
+    "sourcify_match_id": "57635660",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x01D400c86DB22a639733D71FA447f5Af6277e307/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x95ef2251FFcbd402C9ee9E406b76456B1D7eF6Ea",
+    "base_token": "0x95ef2251FFcbd402C9ee9E406b76456B1D7eF6Ea",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T05:00:30Z",
+    "sourcify_match_id": "57635657",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x95ef2251FFcbd402C9ee9E406b76456B1D7eF6Ea/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9F14A0D833F0F17622a3032A84b46d3b05be57fF",
+    "base_token": "0x9F14A0D833F0F17622a3032A84b46d3b05be57fF",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:57:22Z",
+    "sourcify_match_id": "57635377",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9F14A0D833F0F17622a3032A84b46d3b05be57fF/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xc2132ad44dE65ea1E0C1e3E562eed4dC14B3D389",
+    "base_token": "0xc2132ad44dE65ea1E0C1e3E562eed4dC14B3D389",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:56:03Z",
+    "sourcify_match_id": "57635257",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xc2132ad44dE65ea1E0C1e3E562eed4dC14B3D389/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x927391FA7643cF5aeA1A02fF0aEb658Fa15E34dd",
+    "base_token": "0x927391FA7643cF5aeA1A02fF0aEb658Fa15E34dd",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:55:58Z",
+    "sourcify_match_id": "57635254",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x927391FA7643cF5aeA1A02fF0aEb658Fa15E34dd/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x28b22408C4B617DDe3BEf3051390b1c88ff44679",
+    "base_token": "0x28b22408C4B617DDe3BEf3051390b1c88ff44679",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:50:43Z",
+    "sourcify_match_id": "57634796",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x28b22408C4B617DDe3BEf3051390b1c88ff44679/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x2149e8f1112492a306F8674cf68534f4298ab7cE",
+    "base_token": "0x2149e8f1112492a306F8674cf68534f4298ab7cE",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:47:11Z",
+    "sourcify_match_id": "57634468",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x2149e8f1112492a306F8674cf68534f4298ab7cE/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x0c8E44bc2be3cC4Eb73B58C210B9D73d70E3CfAC",
+    "base_token": "0x0c8E44bc2be3cC4Eb73B58C210B9D73d70E3CfAC",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:45:53Z",
+    "sourcify_match_id": "57634350",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x0c8E44bc2be3cC4Eb73B58C210B9D73d70E3CfAC/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xdE211521FECd742e34512D4ED12c4B0c6eF69Aeb",
+    "base_token": "0xdE211521FECd742e34512D4ED12c4B0c6eF69Aeb",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:35:43Z",
+    "sourcify_match_id": "57633336",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xdE211521FECd742e34512D4ED12c4B0c6eF69Aeb/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x85F46aC575972C5ac835c6acE8B94481F62896C1",
+    "base_token": "0x85F46aC575972C5ac835c6acE8B94481F62896C1",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:33:17Z",
+    "sourcify_match_id": "57633089",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x85F46aC575972C5ac835c6acE8B94481F62896C1/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x70080B13c016db5a6f2A882D4fEED6576A593CE3",
+    "base_token": "0x70080B13c016db5a6f2A882D4fEED6576A593CE3",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:32:46Z",
+    "sourcify_match_id": "57633052",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x70080B13c016db5a6f2A882D4fEED6576A593CE3/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x6802bC74023C406b5BA1bC34c76494ae5E8f98B3",
+    "base_token": "0x6802bC74023C406b5BA1bC34c76494ae5E8f98B3",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:29:13Z",
+    "sourcify_match_id": "57632762",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x6802bC74023C406b5BA1bC34c76494ae5E8f98B3/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x5bE7B80D025075DE81e07235fAB64a628fBDf6aC",
+    "base_token": "0x5bE7B80D025075DE81e07235fAB64a628fBDf6aC",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:28:56Z",
+    "sourcify_match_id": "57632744",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x5bE7B80D025075DE81e07235fAB64a628fBDf6aC/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x4eEC2D62f2682F91dFb624f30F168f46FC426Eb5",
+    "base_token": "0x4eEC2D62f2682F91dFb624f30F168f46FC426Eb5",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:28:54Z",
+    "sourcify_match_id": "57632743",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x4eEC2D62f2682F91dFb624f30F168f46FC426Eb5/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x683d5E32F649eD01f18f8c277b72ECc3A70206a5",
+    "base_token": "0x683d5E32F649eD01f18f8c277b72ECc3A70206a5",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:28:48Z",
+    "sourcify_match_id": "57632732",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x683d5E32F649eD01f18f8c277b72ECc3A70206a5/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x2798f1763970FB3874c57DE400928ABa90ea6844",
+    "base_token": "0x2798f1763970FB3874c57DE400928ABa90ea6844",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:28:45Z",
+    "sourcify_match_id": "57632728",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x2798f1763970FB3874c57DE400928ABa90ea6844/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xF15c668e1375D54FA0519B744C2C5Acd07d6dbd8",
+    "base_token": "0xF15c668e1375D54FA0519B744C2C5Acd07d6dbd8",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:28:44Z",
+    "sourcify_match_id": "57632727",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xF15c668e1375D54FA0519B744C2C5Acd07d6dbd8/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x4f179B1D253Be6ba22B8b1B9f55C23B0E587be3F",
+    "base_token": "0x4f179B1D253Be6ba22B8b1B9f55C23B0E587be3F",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:28:44Z",
+    "sourcify_match_id": "57632726",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x4f179B1D253Be6ba22B8b1B9f55C23B0E587be3F/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xAbE96928aA021D1022073B8282394B8bBe2F8Eb0",
+    "base_token": "0xAbE96928aA021D1022073B8282394B8bBe2F8Eb0",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:28:43Z",
+    "sourcify_match_id": "57632725",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xAbE96928aA021D1022073B8282394B8bBe2F8Eb0/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xE51f1CAFb903F0d7c855E49e16CE6F070b5C7168",
+    "base_token": "0xE51f1CAFb903F0d7c855E49e16CE6F070b5C7168",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:28:39Z",
+    "sourcify_match_id": "57632723",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xE51f1CAFb903F0d7c855E49e16CE6F070b5C7168/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xb242a714979A155a657310Dc4CEAA264Ff75c985",
+    "base_token": "0xb242a714979A155a657310Dc4CEAA264Ff75c985",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:26:02Z",
+    "sourcify_match_id": "57632482",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xb242a714979A155a657310Dc4CEAA264Ff75c985/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xC7508C88A39ea553181a696b2F84Eb4A9bDC9Af4",
+    "base_token": "0xC7508C88A39ea553181a696b2F84Eb4A9bDC9Af4",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:24:22Z",
+    "sourcify_match_id": "57632338",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xC7508C88A39ea553181a696b2F84Eb4A9bDC9Af4/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x6e56d5B80Cc6B8426c174511aEba69ebb0F34B3D",
+    "base_token": "0x6e56d5B80Cc6B8426c174511aEba69ebb0F34B3D",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:06:06Z",
+    "sourcify_match_id": "57630624",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x6e56d5B80Cc6B8426c174511aEba69ebb0F34B3D/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xa228E62f1AD038acE81414f79c5F2b213BE6ba3d",
+    "base_token": "0xa228E62f1AD038acE81414f79c5F2b213BE6ba3d",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T04:00:17Z",
+    "sourcify_match_id": "57629815",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xa228E62f1AD038acE81414f79c5F2b213BE6ba3d/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xd9Bbb5e9C3171C3E71c8afb99ee0c7f71Ec6daF1",
+    "base_token": "0xd9Bbb5e9C3171C3E71c8afb99ee0c7f71Ec6daF1",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:59:40Z",
+    "sourcify_match_id": "57629759",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xd9Bbb5e9C3171C3E71c8afb99ee0c7f71Ec6daF1/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9fd3c22cA2Ee2c1BbB720365d26D0DcD46F69411",
+    "base_token": "0x9fd3c22cA2Ee2c1BbB720365d26D0DcD46F69411",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:59:37Z",
+    "sourcify_match_id": "57629753",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9fd3c22cA2Ee2c1BbB720365d26D0DcD46F69411/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9286B899F846fD42e71aa11d5B0bBB9601260E50",
+    "base_token": "0x9286B899F846fD42e71aa11d5B0bBB9601260E50",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:56:08Z",
+    "sourcify_match_id": "57629430",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9286B899F846fD42e71aa11d5B0bBB9601260E50/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x1591Aa31401d68f5D88B45b2F9bab89ECfD6189c",
+    "base_token": "0x1591Aa31401d68f5D88B45b2F9bab89ECfD6189c",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:52:21Z",
+    "sourcify_match_id": "57629085",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x1591Aa31401d68f5D88B45b2F9bab89ECfD6189c/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xf95EA1983F5f96E922696eD3D21a8fE00396D82a",
+    "base_token": "0xf95EA1983F5f96E922696eD3D21a8fE00396D82a",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:50:04Z",
+    "sourcify_match_id": "57628880",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xf95EA1983F5f96E922696eD3D21a8fE00396D82a/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x9B581D1D82A094CC1F45EE238f467B656c308b43",
+    "base_token": "0x9B581D1D82A094CC1F45EE238f467B656c308b43",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:44:56Z",
+    "sourcify_match_id": "57628412",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x9B581D1D82A094CC1F45EE238f467B656c308b43/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x6B0f3339281639fefB22ba855888Fe9C2dbF7353",
+    "base_token": "0x6B0f3339281639fefB22ba855888Fe9C2dbF7353",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:30:07Z",
+    "sourcify_match_id": "57626976",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x6B0f3339281639fefB22ba855888Fe9C2dbF7353/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xaa631Fae8659d80b4cd8f0f13e233F7Ff8144864",
+    "base_token": "0xaa631Fae8659d80b4cd8f0f13e233F7Ff8144864",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:28:26Z",
+    "sourcify_match_id": "57626814",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xaa631Fae8659d80b4cd8f0f13e233F7Ff8144864/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x03F47578784715982b0dCF9cB61318b6c4D654F6",
+    "base_token": "0x03F47578784715982b0dCF9cB61318b6c4D654F6",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:27:38Z",
+    "sourcify_match_id": "57626746",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x03F47578784715982b0dCF9cB61318b6c4D654F6/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x5be272c3B0D800b4E9650F0A0612Be53f94a61f8",
+    "base_token": "0x5be272c3B0D800b4E9650F0A0612Be53f94a61f8",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:26:19Z",
+    "sourcify_match_id": "57626632",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x5be272c3B0D800b4E9650F0A0612Be53f94a61f8/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xAdAdC111209115AAE651da47678497a0bc8eC541",
+    "base_token": "0xAdAdC111209115AAE651da47678497a0bc8eC541",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "match",
+    "creation_match": "match",
+    "runtime_match": "match",
+    "verified_at": "2026-10-30T03:19:29Z",
+    "sourcify_match_id": "57626013",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xAdAdC111209115AAE651da47678497a0bc8eC541/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x3217aC0be4Bf19850c894B1EC3fB206B76bc8F4E",
+    "base_token": "0x3217aC0be4Bf19850c894B1EC3fB206B76bc8F4E",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:16:27Z",
+    "sourcify_match_id": "57625703",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x3217aC0be4Bf19850c894B1EC3fB206B76bc8F4E/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xF45703c11a8D4d9a1DbBAd188D9c381235A98A4D",
+    "base_token": "0xF45703c11a8D4d9a1DbBAd188D9c381235A98A4D",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:15:37Z",
+    "sourcify_match_id": "57625604",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xF45703c11a8D4d9a1DbBAd188D9c381235A98A4D/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xb6eb6f7973a1626E8C6fAd98cc159924A231f242",
+    "base_token": "0xb6eb6f7973a1626E8C6fAd98cc159924A231f242",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:09:09Z",
+    "sourcify_match_id": "57625003",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xb6eb6f7973a1626E8C6fAd98cc159924A231f242/"
+  },
+  {
+    "network": "bsc",
+    "address": "0x4517e7F7FbDa79861671543289a4BA975562ba86",
+    "base_token": "0x4517e7F7FbDa79861671543289a4BA975562ba86",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:07:49Z",
+    "sourcify_match_id": "57624900",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0x4517e7F7FbDa79861671543289a4BA975562ba86/"
+  },
+  {
+    "network": "bsc",
+    "address": "0xd588222cCd1A6089fa4Dc5075Ba5A4eE4F40Db71",
+    "base_token": "0xd588222cCd1A6089fa4Dc5075Ba5A4eE4F40Db71",
+    "name": "Recently verified contract",
+    "target_kind": "verified_contract",
+    "reserve_usd": "0",
+    "volume_24h_usd": "0",
+    "sourcify_match": "exact_match",
+    "creation_match": "exact_match",
+    "runtime_match": "exact_match",
+    "verified_at": "2026-10-30T03:04:43Z",
+    "sourcify_match_id": "57624609",
+    "candidate_evidence": "Address appears in Sourcify's newest-first verified-contract listing; verification recency is not deployment recency.",
+    "source_url": "https://repo.sourcify.dev/contracts/full_match/56/0xd588222cCd1A6089fa4Dc5075Ba5A4eE4F40Db71/"
+  }
+]
+---------------
+The bsc-discovery.json is;
+[
+  {
+    "network": "bsc",
+    "pool": "0xc88bf554e5b075e185a521435a8b6eb1a84c98c03529bf8b6ced74cee7416ecd",
+    "name": "CMUSK / BNB",
+    "created_at": "2026-10-30T07:16:40Z",
+    "base_token": "0x724214247235ae96d8ec6da18b9f9790c106e6ea",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "0.0000000000000000000000000570616",
+    "volume_24h_usd": "0.00000000071325"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x80c18e36d1fbb3fc2bdfd14d4f12347b11e3c11b",
+    "name": "WOLVERINE / WBNB",
+    "created_at": "2026-10-30T07:15:38Z",
+    "base_token": "0xae81b6377d5d58f8f154fc4f02f8b9709d9317b3",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "11306.0824",
+    "volume_24h_usd": "268.016902158"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x09986ad4713b7041cafa42e88408f6933cd5c4fe",
+    "name": "\u50bb\u903c\u64b8\u5b50\u7ee7\u7eed\u6765 / WBNB",
+    "created_at": "2026-10-30T07:15:15Z",
+    "base_token": "0xf8b09c1afe0db1197e67a75164b368412526ffff",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "1.2839",
+    "volume_24h_usd": "19724.2436965277"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x021a75077765813157cd2bd7903473b96d0cd0ad",
+    "name": "\u50bb\u903c\u64b8\u5b50\u7ee7\u7eed\u6765 / WBNB",
+    "created_at": "2026-10-30T07:13:45Z",
+    "base_token": "0xc47d7e2088070bfd9aaaaa1201373d13002affff",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.9272",
+    "volume_24h_usd": "21457.9464206442"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x4f46347ab383a6efa999df10cf8ee6eee6841f1d",
+    "name": "TEXTYOUREX / WBNB 0.25%",
+    "created_at": "2026-10-30T07:13:32Z",
+    "base_token": "0xbb2b54b8347e06eb67ef2e510c14553516083333",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "3049.6355",
+    "volume_24h_usd": "19.1250262"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xe0754a2bf5edba6375c95ee26c8309a3ad194864",
+    "name": "0 / USDT",
+    "created_at": "2026-10-30T07:13:22Z",
+    "base_token": "0x1ff1a2e0d2469c16dba98dc09c9bd87699352eb8",
+    "quote_token": "0x55d398326f99059ff775485246999027b3197955",
+    "reserve_usd": "13738.8355",
+    "volume_24h_usd": "894.1566176918"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x35c7412e0c3da3d0ba80e14f767f61e5da3defc6",
+    "name": "PEP / WBNB",
+    "created_at": "2026-10-30T07:11:47Z",
+    "base_token": "0x51d2272769f735846a59f94e3233f0b5afd68e6b",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "35223.4946",
+    "volume_24h_usd": "13439.5277100804"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x346fd7befd982700bc6373599f77950285428be6",
+    "name": "WH / USDT",
+    "created_at": "2026-10-30T07:10:14Z",
+    "base_token": "0xfbf376bdc18187719dd5a4bc4d5d77f72cade78a",
+    "quote_token": "0x55d398326f99059ff775485246999027b3197955",
+    "reserve_usd": "0.1427",
+    "volume_24h_usd": "120.4090510597"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xde07c24a9747b79ef7a917c69556bea45a7aa1cd",
+    "name": "\u8d85\u7ea7\u5e01\u5b89 / WBNB",
+    "created_at": "2026-10-30T07:09:59Z",
+    "base_token": "0x67183703500d3e0bbf743f8a93a3d208acb2ffff",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "1.2839",
+    "volume_24h_usd": "20740.0789757829"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x8e5468e39dd742b9abb8062873db7181fd180355",
+    "name": "ZMZOO / WBNB",
+    "created_at": "2026-10-30T07:08:59Z",
+    "base_token": "0xfdf629bc53186febffa20d4a8ac805a9d2a73b1d",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "9991.2034",
+    "volume_24h_usd": "1489.1947874765"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x002b4f61b61b65c7507c09ce3e8158ade3663567",
+    "name": "\u8d85\u7ea7\u5e01\u5b89 / WBNB",
+    "created_at": "2026-10-30T07:08:37Z",
+    "base_token": "0x9790959771d52c3ea454c38416ac7deb9e97ffff",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.9986",
+    "volume_24h_usd": "19168.8457127978"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xd882292255deb046dfce4441ac35ee9dbea57152",
+    "name": "LAPTOP / WBNB",
+    "created_at": "2026-10-30T07:08:37Z",
+    "base_token": "0x783b630904f45462e383cd578e0dacc6d6837777",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "15134.951",
+    "volume_24h_usd": "13692.9036427583"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x8f5b612236911f7b792130a206cdb776427bca36",
+    "name": "LAPTOP / WBNB",
+    "created_at": "2026-10-30T07:04:59Z",
+    "base_token": "0xd77be932a4fb233acce227fb322cc036e1bc7777",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.0713",
+    "volume_24h_usd": "33413.4784085524"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x54d6b5e2d4b78ff6b4b5f02a1af4834301cb6d80",
+    "name": "ANONYMOUSE / WBNB",
+    "created_at": "2026-10-30T07:04:50Z",
+    "base_token": "0xe8b018c7ef909fee7af937f0bb1adbe2d1c77777",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.0713",
+    "volume_24h_usd": "35612.6551196215"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x2382d06985b63ff2c587f1c5d3a505c7b46f5524",
+    "name": "CKR / WBNB",
+    "created_at": "2026-10-30T07:04:34Z",
+    "base_token": "0xb5747e02cd550ca2c80e21011ab2b4607cdd0aec",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "17115.2443",
+    "volume_24h_usd": "3233.3498274072"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x6e6d4e275fa99765504ffe11e70b9010d4c5d3df",
+    "name": "slisBNB / USDT",
+    "created_at": "2026-10-30T07:03:59Z",
+    "base_token": "0xb83d3a0c9844dee43fb56f7a27dac0654100c24a",
+    "quote_token": "0x55d398326f99059ff775485246999027b3197955",
+    "reserve_usd": "0.0714",
+    "volume_24h_usd": "83.9812302273"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xf28f0e93c9ec60291cf0acadcc3b8947717736174eb3425d116f18e0c66c6d82",
+    "name": "BYF / TSLAB 1%",
+    "created_at": "2026-10-30T07:03:52Z",
+    "base_token": "0x31de2f841e7b9a7e3eb71431b9be48852e281111",
+    "quote_token": "0x5b1910eaad6450e50f816082aa078c41f10c292f",
+    "reserve_usd": "18143.6226",
+    "volume_24h_usd": "298.8848958187"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x78076a43c4266f6886b4b1a3661b5e75d5368e06",
+    "name": "LAPTOP / WBNB",
+    "created_at": "2026-10-30T07:03:35Z",
+    "base_token": "0xb6809c129f7994a3e09a8541e238e6aa948d7777",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.0714",
+    "volume_24h_usd": "3003.9972197374"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x7629139316c307668b9a628e34cbfe5c7e43f0c7793cd1f2581f824534fb897d",
+    "name": "\u76f8\u4fe1\u5e01\u5b89 / BNB 1%",
+    "created_at": "2026-10-30T07:03:14Z",
+    "base_token": "0x37570906493599601df8edbfdfa9991d62d11111",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "5041.2604",
+    "volume_24h_usd": "0.71482"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x1c39a58063db99204791a84006db73c0f2b585bff42f2876e7ebc19843779181",
+    "name": "VAGINA / BNB 1%",
+    "created_at": "2026-10-30T07:02:49Z",
+    "base_token": "0x36c025e2edc4bf9678660e151faaae3068d71111",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "5041.2604",
+    "volume_24h_usd": "0.71481"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x091b88ab8850acd2c8567f45ee509253c2e99b3bfd1c88bdb15f285b710efdda",
+    "name": "LAZARUS / BNB 1%",
+    "created_at": "2026-10-30T07:02:10Z",
+    "base_token": "0x6f65dcf8ecfc3cc658f25512a9cdb6da1a591111",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "5041.2604",
+    "volume_24h_usd": "0.71482"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x8dde3cba74c45ea5cc17e2c551b4bb9065a37773",
+    "name": "UNSAFU / USDT",
+    "created_at": "2026-10-30T07:01:01Z",
+    "base_token": "0xcc693cae2679826d4a41cd2d5e336612efac78f6",
+    "quote_token": "0x55d398326f99059ff775485246999027b3197955",
+    "reserve_usd": "45665.4033",
+    "volume_24h_usd": "4832.2396575682"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x0e85b7bc7e9a3106a1886502d467c1399407bf5d",
+    "name": "BG\ud83d\udc38 / WBNB",
+    "created_at": "2026-10-30T07:00:39Z",
+    "base_token": "0xbbd48b17e44fc18572ba79f8427858fe11f00553",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "121918.9608",
+    "volume_24h_usd": "173093.529640326"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x75dbd7afade82fcd28e0593a58d09ec80f910601e66d7c7d3ca0154f7090b765",
+    "name": "HYPEPE / BNB 1%",
+    "created_at": "2026-10-30T07:00:25Z",
+    "base_token": "0xa962c3a8b2fd5e753c1a0c24e5985971ad471111",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "10082.5921",
+    "volume_24h_usd": "0.71488"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x2cb5e4e20096517f4feab8bdd43f58707c5ea02f",
+    "name": "BIBIAI / USDT",
+    "created_at": "2026-10-30T07:00:06Z",
+    "base_token": "0x9740bc5dfb3dd78da68e0d4608a418e76385285f",
+    "quote_token": "0x55d398326f99059ff775485246999027b3197955",
+    "reserve_usd": "0.0714",
+    "volume_24h_usd": "44.9412965328"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x6406c5dfa1af52f4f7a5ffa0d00423f279337046",
+    "name": "FROG / WBNB",
+    "created_at": "2026-10-30T06:59:16Z",
+    "base_token": "0x5cd22ee4cc92033687c6caa5512d701273bfb930",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.0713",
+    "volume_24h_usd": "2583.4062696623"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xbf3f24d0b133267a0c93cca80d421b9b364d634ead5d4b39a2924c163e5291db",
+    "name": "HYPERMINE / BNB 1%",
+    "created_at": "2026-10-30T06:59:13Z",
+    "base_token": "0x31e07d7a9a9715cd85baedda99fa5a0772f81111",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "10082.5921",
+    "volume_24h_usd": "0.71494"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x7df1b0008449f016c7e8c255ae072da8511e5e45",
+    "name": "\u6148\u5584\u5e01\u5b89 / WBNB",
+    "created_at": "2026-10-30T06:58:30Z",
+    "base_token": "0x7ecbab504951e4b8b9557a1b94e1b5c028dbb348",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "92134.782",
+    "volume_24h_usd": "4707.118412"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x8c0acf37e4dac1003960133eeb01d71ead014bf4b5f3e7e9a29e2c314a61f2b0",
+    "name": "STABLEPAD / BNB 1%",
+    "created_at": "2026-10-30T06:58:16Z",
+    "base_token": "0x24ad6b2105172b7c17cc3237dae525135c771111",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "5041.2604",
+    "volume_24h_usd": "0.71497"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x00795173d1402878bc0cff3b672ae24b6111436e",
+    "name": "TraderTraitor / WBNB",
+    "created_at": "2026-10-30T06:57:13Z",
+    "base_token": "0xc73ca716613f738e632777b6d1548bc0e4a4ffff",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "1.2854",
+    "volume_24h_usd": "90441.7438766514"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xd6a7b7b7d758ab4c55f25c43312289d1e7389931",
+    "name": "GBLGLA / WBNB",
+    "created_at": "2026-10-30T06:57:04Z",
+    "base_token": "0x74f9c9c808111030a6b74f62d23cd1cfc6d354bd",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.0714",
+    "volume_24h_usd": "1963.6908613852"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x857ecbaf6dbc4fd3525cfea5da837d7711e91132",
+    "name": "BNQ / WBNB",
+    "created_at": "2026-10-30T06:57:02Z",
+    "base_token": "0x1b3efb66b7f5807b894e56bfe49b75d8fe2315cd",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "45426.5359",
+    "volume_24h_usd": "14300.5772723212"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xeba4440d2bdcf1aa19cf825b421833f2e1f917fc",
+    "name": "QUBT / WBNB",
+    "created_at": "2026-10-30T06:56:19Z",
+    "base_token": "0x328134896b232023ac0ffe91e642191d8ed5b055",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "426.7375",
+    "volume_24h_usd": "57.7682402649"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x2cf213b1d2c414349b223e5b8963073476a92195",
+    "name": "LAPTOP / WBNB",
+    "created_at": "2026-10-30T06:56:12Z",
+    "base_token": "0x104accb659b7b34f394f579d715d026a04067777",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.0714",
+    "volume_24h_usd": "16616.3214900971"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x6a2ceb252cc17e9b219bbb71f0e3f3a176e861b0",
+    "name": "V44V / WBNB",
+    "created_at": "2026-10-30T06:55:53Z",
+    "base_token": "0x2b38c437ecaa4549796b4d5ea659cff7e633954a",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "30.2418",
+    "volume_24h_usd": "31.1079835666"
+  },
+  {
+    "network": "bsc",
+    "pool": "0x832456f5a7a0e95eb64e6d37f9457032e969fc53",
+    "name": "CC / WBNB",
+    "created_at": "2026-10-30T06:55:41Z",
+    "base_token": "0x38e77886e1d04c8138933b1c4a577554812eb7b3",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.7846",
+    "volume_24h_usd": "369868.541633325"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xc7cd3a05aa93aff804e947928a1e522e75662c7ea474382524707b1339e8779d",
+    "name": "CICI / BNB 1%",
+    "created_at": "2026-10-30T06:54:45Z",
+    "base_token": "0xadd21788c9e656ab78c86696cde63c0755d51111",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "5041.2604",
+    "volume_24h_usd": "0.71452"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xcefae70ca9652465fa86a6e9a17e9f7dd802095f",
+    "name": "\u4eae\u5251\u4eba\u751f / USDT",
+    "created_at": "2026-10-30T06:53:51Z",
+    "base_token": "0x572cb178a91261ec3c54beb7b238d10d96706ab0",
+    "quote_token": "0x55d398326f99059ff775485246999027b3197955",
+    "reserve_usd": "0.00158668408823563",
+    "volume_24h_usd": "4987.8319127004"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xfea9afd09dad582fd477a79c74bdd688b1038bb4",
+    "name": "p/acc / WBNB",
+    "created_at": "2026-10-30T06:53:09Z",
+    "base_token": "0x0bf410d1295000cb0b4cd4408a1f998b67707777",
+    "quote_token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve_usd": "0.0713",
+    "volume_24h_usd": "35771.5537407498"
+  },
+  {
+    "network": "bsc",
+    "pool": "0xbbc99ab1a4e805b8836d4d69da61b20ece55d9c3107c8d8f246f6bf243d9fcd7",
+    "name": "CATORI / BNB 1%",
+    "created_at": "2026-10-30T06:52:56Z",
+    "base_token": "0xb71d015b90ddc67ea607e91c62596b5367d31111",
+    "quote_token": "0x0000000000000000000000000000000000000000",
+    "reserve_usd": "5041.2604",
+    "volume_24h_usd": "0.71452"
+  }
+]
+-------------
+The bsc-scan-report.json is;
+[
+  {
+    "network": "bsc",
+    "address": "0xbbd48b17e44fc18572ba79f8427858fe11f00553",
+    "pool": "0x0e85b7bc7e9a3106a1886502d467c1399407bf5d",
+    "name": "BG\ud83d\udc38 / WBNB",
+    "reserve_usd": "121918.9608",
+    "target_kind": null,
+    "verified_at": null,
+    "sourcify_match": null,
+    "deployer": null,
+    "deployment_tx": null,
+    "deployment_block": null,
+    "block_timestamp": null,
+    "candidate_evidence": null,
+    "status": "screened",
+    "goplus_security": {
+      "status": "ok",
+      "reason": "OK",
+      "data": {
+        "creator_address": "0x5a3183d9c61e9d5ab7b2626e73aa0defa02f78de",
+        "owner_address": "0x5a3183d9c61e9d5ab7b2626e73aa0defa02f78de",
+        "owner_balance": "225000",
+        "owner_percent": "0.000225",
+        "holder_count": "1",
+        "is_open_source": "1",
+        "is_proxy": "0",
+        "is_mintable": "0",
+        "can_take_back_ownership": "0",
+        "owner_change_balance": "0",
+        "hidden_owner": "0",
+        "selfdestruct": "0",
+        "external_call": "0",
+        "is_honeypot": "0",
+        "cannot_sell_all": "0",
+        "cannot_buy": "0",
+        "is_blacklisted": "0",
+        "is_whitelisted": "0",
+        "transfer_pausable": "0",
+        "slippage_modifiable": "0",
+        "buy_tax": "0",
+        "sell_tax": "0",
+        "transfer_tax": "",
+        "is_in_dex": "1",
+        "honeypot_with_same_creator": "0"
+      }
+    },
+    "goplus_risk_score": 0,
+    "goplus_risk_signals": [],
+    "transparency_flags": [],
+    "creation_context": {
+      "status": "ok",
+      "provider": "NodeReal",
+      "creator": "0x5a3183d9c61e9d5ab7b2626e73aa0defa02f78de",
+      "creation_tx": "0x01eed35a2456906f6bd6b1d9b60abb544e7f81ced327de548f28f1446d378900",
+      "creation_timestamp": 1793343628,
+      "creation_block": 130621394,
+      "contract_address_from_receipt": "0xbbd48b17e44fc18572ba79f8427858fe11f00553",
+      "creation_transaction_to": null,
+      "creation_mode": "direct_or_unknown",
+      "factory_candidate": null,
+      "target_creation_tx_seen_in_history": true,
+      "same_destination_calls": [],
+      "related_deployments": [],
+      "related_search": {
+        "provider": "NodeReal",
+        "method": "nr_getTransactionByAddress",
+        "window_blocks_each_side": 5000,
+        "max_related": 20,
+        "block_chunks_queried": 8,
+        "creator_transactions_checked": 16,
+        "creation_candidates_checked": 0,
+        "creation_receipts_checked": 0
+      },
+      "note": "Related deployments are leads only; shared deployer and timing do not prove a shared protocol.",
+      "reason": "Creation metadata succeeded, but no additional direct deployments were recovered from the bounded sender-transaction search. Factory-created deployments, RPC pagination limits, or unsupported creation records can still be missed."
+    },
+    "related_contract_reviews": [],
+    "contract_name": "Token",
+    "source_provider": "Etherscan",
+    "compiler_version": "0.8.33",
+    "score": 0,
+    "findings": [
+      {
+        "check": "pragma",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "5 different versions of Solidity are used:\n\t- Version constraint ^0.8.20 is used by:\n\t\t-^0.8.20 (@openzeppelin/contracts/access/Ownable.sol#4)\n\t\t-^0.8.20 (@openzeppelin/contracts/token/ERC20/ERC20.sol#4)\n\t\t-^0.8.20 (@openzeppelin/contracts/utils/Context.sol#4)\n\t- Version constraint >=0.8.4 is used by:\n\t\t->=0.8.4 (@openzeppelin/contracts/interfaces/draft-IERC6093.sol#3)\n\t- Version constraint >=0.4.16 is used by:\n\t\t->=0.4.16 (@openzeppelin/contracts/token/ERC20/IERC20.sol#4)\n\t- Version constraint >=0.6.2 is used by:\n\t\t->=0.6.2 (@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol#4)\n\t- Version constraint ^0.8.33 is used by:\n\t\t-^0.8.33 (Token.sol#2)\n",
+        "score": 0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "Context._contextSuffixLength() (@openzeppelin/contracts/utils/Context.sol#25-27) is never used and should be removed\n",
+        "score": 0.0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "ERC20._burn(address,uint256) (@openzeppelin/contracts/token/ERC20/ERC20.sol#229-234) is never used and should be removed\n",
+        "score": 0.0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "Context._msgData() (@openzeppelin/contracts/utils/Context.sol#21-23) is never used and should be removed\n",
+        "score": 0.0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint >=0.8.4 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess\n\t- AbiReencodingHeadOverflowWithStaticArrayCleanup\n\t- DirtyBytesArrayToStorage\n\t- DataLocationChangeInInternalOverride\n\t- NestedCalldataArrayAbiReencodingSizeValidation\n\t- SignedImmutables.\nIt is used by:\n\t- >=0.8.4 (@openzeppelin/contracts/interfaces/draft-IERC6093.sol#3)\n",
+        "score": 0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint ^0.8.20 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- VerbatimInvalidDeduplication\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess.\nIt is used by:\n\t- ^0.8.20 (@openzeppelin/contracts/access/Ownable.sol#4)\n\t- ^0.8.20 (@openzeppelin/contracts/token/ERC20/ERC20.sol#4)\n\t- ^0.8.20 (@openzeppelin/contracts/utils/Context.sol#4)\n",
+        "score": 0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint >=0.6.2 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- MissingSideEffectsOnSelectorAccess\n\t- AbiReencodingHeadOverflowWithStaticArrayCleanup\n\t- DirtyBytesArrayToStorage\n\t- NestedCalldataArrayAbiReencodingSizeValidation\n\t- ABIDecodeTwoDimensionalArrayMemory\n\t- KeccakCaching\n\t- EmptyByteArrayCopy\n\t- DynamicArrayCleanup\n\t- MissingEscapingInFormatting\n\t- ArraySliceDynamicallyEncodedBaseType\n\t- ImplicitConstructorCallvalueCheck\n\t- TupleAssignmentMultiStackSlotComponents\n\t- MemoryArrayCreationOverflow.\nIt is used by:\n\t- >=0.6.2 (@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol#4)\n",
+        "score": 0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint >=0.4.16 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- DirtyBytesArrayToStorage\n\t- ABIDecodeTwoDimensionalArrayMemory\n\t- KeccakCaching\n\t- EmptyByteArrayCopy\n\t- DynamicArrayCleanup\n\t- ImplicitConstructorCallvalueCheck\n\t- TupleAssignmentMultiStackSlotComponents\n\t- MemoryArrayCreationOverflow\n\t- privateCanBeOverridden\n\t- SignedArrayStorageCopy\n\t- ABIEncoderV2StorageArrayWithMultiSlotElement\n\t- DynamicConstructorArgumentsClippedABIV2\n\t- UninitializedFunctionPointerInConstructor_0.4.x\n\t- IncorrectEventSignatureInLibraries_0.4.x\n\t- ExpExponentCleanup\n\t- NestedArrayFunctionCallDecoder\n\t- ZeroFunctionSelector.\nIt is used by:\n\t- >=0.4.16 (@openzeppelin/contracts/token/ERC20/IERC20.sol#4)\n",
+        "score": 0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      }
+    ],
+    "source_signal_score": 0,
+    "source_risk_signals": [],
+    "review_score": 0,
+    "research_disposition": "low_priority_code_signals"
+  },
+  {
+    "network": "bsc",
+    "address": "0x7ecbab504951e4b8b9557a1b94e1b5c028dbb348",
+    "pool": "0x7df1b0008449f016c7e8c255ae072da8511e5e45",
+    "name": "\u6148\u5584\u5e01\u5b89 / WBNB",
+    "reserve_usd": "92134.782",
+    "target_kind": null,
+    "verified_at": null,
+    "sourcify_match": null,
+    "deployer": null,
+    "deployment_tx": null,
+    "deployment_block": null,
+    "block_timestamp": null,
+    "candidate_evidence": null,
+    "status": "screened",
+    "goplus_security": {
+      "status": "ok",
+      "reason": "OK",
+      "data": {
+        "creator_address": "0x14249a5d620461c633cfc885db568ab31273d223",
+        "owner_balance": "0",
+        "owner_percent": "0",
+        "holder_count": "0",
+        "is_open_source": "1",
+        "is_proxy": "0",
+        "is_mintable": "0",
+        "can_take_back_ownership": "0",
+        "owner_change_balance": "0",
+        "hidden_owner": "0",
+        "selfdestruct": "0",
+        "external_call": "0",
+        "is_honeypot": "0",
+        "cannot_sell_all": "0",
+        "cannot_buy": "0",
+        "is_blacklisted": "0",
+        "is_whitelisted": "0",
+        "transfer_pausable": "0",
+        "slippage_modifiable": "0",
+        "buy_tax": "0",
+        "sell_tax": "0",
+        "transfer_tax": "0",
+        "is_in_dex": "1",
+        "honeypot_with_same_creator": "0"
+      }
+    },
+    "goplus_risk_score": 0,
+    "goplus_risk_signals": [],
+    "transparency_flags": [],
+    "creation_context": {
+      "status": "ok",
+      "provider": "NodeReal",
+      "creator": "0x14249a5d620461c633cfc885db568ab31273d223",
+      "creation_tx": "0xf5cb0a2b7d02697b4ae3c6437786070a540d71a18b7b6d90ffb01cc2c0a81829",
+      "creation_timestamp": 1793343492,
+      "creation_block": 130621091,
+      "contract_address_from_receipt": "0x7ecbab504951e4b8b9557a1b94e1b5c028dbb348",
+      "creation_transaction_to": null,
+      "creation_mode": "direct_or_unknown",
+      "factory_candidate": null,
+      "target_creation_tx_seen_in_history": true,
+      "same_destination_calls": [],
+      "related_deployments": [],
+      "related_search": {
+        "provider": "NodeReal",
+        "method": "nr_getTransactionByAddress",
+        "window_blocks_each_side": 5000,
+        "max_related": 20,
+        "block_chunks_queried": 8,
+        "creator_transactions_checked": 4,
+        "creation_candidates_checked": 0,
+        "creation_receipts_checked": 0
+      },
+      "note": "Related deployments are leads only; shared deployer and timing do not prove a shared protocol.",
+      "reason": "Creation metadata succeeded, but no additional direct deployments were recovered from the bounded sender-transaction search. Factory-created deployments, RPC pagination limits, or unsupported creation records can still be missed."
+    },
+    "related_contract_reviews": [],
+    "contract_name": "virtualToken",
+    "source_provider": "Etherscan",
+    "compiler_version": "0.8.25",
+    "score": 6,
+    "findings": [
+      {
+        "check": "shadowing-local",
+        "impact": "Low",
+        "confidence": "High",
+        "description": "virtualToken.constructor(string,string,uint256).symbol (Contract.sol#398) shadows:\n\t- ERC20.symbol() (Contract.sol#232-234) (function)\n\t- IERC20Metadata.symbol() (Contract.sol#193) (function)\n",
+        "score": 3,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "shadowing-local",
+        "impact": "Low",
+        "confidence": "High",
+        "description": "virtualToken.constructor(string,string,uint256).name (Contract.sol#398) shadows:\n\t- ERC20.name() (Contract.sol#224-226) (function)\n\t- IERC20Metadata.name() (Contract.sol#192) (function)\n",
+        "score": 3,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "Context._contextSuffixLength() (Contract.sol#171-173) is never used and should be removed\n",
+        "score": 0.0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "ERC20._burn(address,uint256) (Contract.sol#357-362) is never used and should be removed\n",
+        "score": 0.0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "dead-code",
+        "impact": "Informational",
+        "confidence": "Medium",
+        "description": "Context._msgData() (Contract.sol#167-169) is never used and should be removed\n",
+        "score": 0.0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "solc-version",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Version constraint ^0.8.20 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- VerbatimInvalidDeduplication\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess.\nIt is used by:\n\t- ^0.8.20 (Contract.sol#2)\n\t- ^0.8.20 (Contract.sol#161)\n\t- ^0.8.20 (Contract.sol#176)\n\t- ^0.8.20 (Contract.sol#189)\n\t- ^0.8.20 (Contract.sol#198)\n\t- ^0.8.20 (Contract.sol#394)\n",
+        "score": 0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      },
+      {
+        "check": "naming-convention",
+        "impact": "Informational",
+        "confidence": "High",
+        "description": "Contract virtualToken (Contract.sol#396-401) is not in CapWords\n",
+        "score": 0,
+        "triage_status": "untriaged",
+        "triage_note": null
+      }
+    ],
+    "source_signal_score": 0,
+    "source_risk_signals": [],
+    "review_score": 6,
+    "research_disposition": "low_priority_code_signals"
   }
 ]
