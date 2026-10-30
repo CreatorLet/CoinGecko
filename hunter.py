@@ -2038,6 +2038,11 @@ def _save_autopilot_state(state):
         "processed_addresses": sorted(address for _, address in state["processed_addresses"]),
         "deepseek_reviews_used": state["review_count"],
         "cycles_completed": state["cycles_completed"],
+        "current_address": (
+            state["current"].get("address")
+            if state.get("current") and state["current"].get("status") == "awaiting_agent_decision"
+            else None
+        ),
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     _atomic_json_write(state["checkpoint_path"], checkpoint)
@@ -2164,7 +2169,17 @@ def _screen_next_autopilot_candidate(state):
         state["cycle_screened"] += 1
         result["autopilot_cycle"] = state["cycles_completed"] + 1
         result["autopilot_decision"] = "awaiting_deepseek_triage"
-        state["records"].append(result)
+        existing_index = next(
+            (i for i, row in enumerate(state["records"])
+             if row.get("network") == state["network"]
+             and str(row.get("address", "")).lower() == address.lower()
+             and row.get("status") == "awaiting_agent_decision"),
+            None,
+        )
+        if existing_index is None:
+            state["records"].append(result)
+        else:
+            state["records"][existing_index] = result
 
         if result.get("status") != "screened":
             result["autopilot_decision"] = "auto_skipped"
@@ -2441,6 +2456,13 @@ def run_autopilot(args):
         "finished": False, "finish_reason": None, "discovery_done": False,
         "candidates": [], "next_index": 0, "cycle_screened": 0, "current": None,
     }
+    # If the process died while a candidate was waiting for DeepSeek's
+    # decision, put it back in the queue instead of silently losing it.
+    interrupted_address = checkpoint.get("current_address")
+    if interrupted_address:
+        state["processed_addresses"].discard((args.network, str(interrupted_address).lower()))
+        print(f"[Hunter autopilot] Resuming interrupted candidate {interrupted_address} from screening.")
+
     start = time.time()
     while True:
         state["finished"] = False
@@ -2462,6 +2484,9 @@ def run_autopilot(args):
             f"DeepSeek reviews used={state['review_count']}, reason={state.get('finish_reason')}"
         )
         if not args.continuous:
+            break
+        if args.max_ai_reviews > 0 and state["review_count"] >= args.max_ai_reviews:
+            print("[Hunter autopilot] Global DeepSeek review budget reached; stopping continuous mode.")
             break
         if args.max_hours > 0 and time.time() - start >= args.max_hours * 3600:
             break
