@@ -987,7 +987,7 @@ def scan_related_contract(network, address, relationship, ai=False, min_score=30
                 "review_score": review_score,
                 "status": "screened",
             })
-            if ai and review_score >= min_score:
+            if ai and ai_eligible:
                 result["deepseek"] = deepseek_review(
                     {"network": network, "address": address,
                      "relationship": relationship, "review_score": review_score},
@@ -1008,6 +1008,65 @@ def scan_related_contract(network, address, relationship, ai=False, min_score=30
         result["status"] = "error"
         result["reason"] = str(exc)[:1200]
     return result
+
+
+def bounty_worthiness(source, paths, root, entry, score, signal_score, findings):
+    """Review priority, not exploit probability or bounty eligibility."""
+    import re
+    name = (source.get("ContractName") or "").lower()
+    kinds = (entry.get("target_kind") or "").lower()
+    joined = []
+    for path in paths:
+        p = str(path).lower()
+        if any(x in p.split("/") for x in ("test", "tests", "mock", "mocks", "examples", "tutorials")):
+            continue
+        try:
+            joined.append((root / path).read_text(encoding="utf-8", errors="ignore")[:150000])
+        except OSError:
+            continue
+    code = "\n".join(joined).lower()
+    score_out = min(30, max(0, score + signal_score) // 2)
+    factors = []
+    if kinds in ("verified_contract", "chain_deployment"):
+        score_out += 12
+        factors.append("publicly verified/deployed candidate")
+    else:
+        factors.append("pool liquidity is contextual, not necessarily controlled by this contract")
+    custody = bool(re.search(r"\\b(escrow|deposit|withdraw|redeem|borrow|repay|liquidat|claim|settle|vault|collateral|stake|swap)\\b", code))
+    transfers = bool(re.search(r"(safetransfer|transferfrom|\\.transfer\\(|\\.call\\s*\\{value|raw_call)", code))
+    accounting = bool(re.search(r"(totalassets|totalsupply|pendingbalance|collateral|reserve|shares|liabilit|balanceof|debt|accrued)", code))
+    if custody and transfers:
+        score_out += 24
+        factors.append("fund-moving entry points")
+    if accounting and transfers:
+        score_out += 14
+        factors.append("asset/accounting surfaces")
+    if custody and accounting and transfers:
+        score_out += 10
+        factors.append("multiple fund-handling surfaces")
+    try:
+        liquidity = float(entry.get("reserve_usd") or 0)
+    except (TypeError, ValueError):
+        liquidity = 0
+    if liquidity >= 100000:
+        score_out += 8
+        factors.append("associated pool liquidity >= $100k (not contract TVL)")
+    elif liquidity >= 50000:
+        score_out += 4
+        factors.append("associated pool liquidity >= $50k (not contract TVL)")
+    if name in ("erc20", "token", "virtualtoken", "bep20") or (
+        re.search(r"(token|coin)$", name) and not custody
+    ):
+        score_out -= 35
+        factors.append("plain token / no demonstrated protocol custody")
+    strong = [f for f in findings if f.get("impact") == "High"]
+    if strong:
+        score_out += 10
+        factors.append("high-severity static warnings requiring validation")
+    if not custody or not transfers:
+        score_out -= 25
+        factors.append("no demonstrated financial entrypoint plus asset movement")
+    return max(0, min(100, score_out)), factors, bool(custody and transfers)
 
 
 def scan_target(entry, ai=False, min_score=30):
@@ -1104,6 +1163,10 @@ def scan_target(entry, ai=False, min_score=30):
             # token a bounty candidate; many describe privileged owner controls
             # or honeypot-like trading risks rather than an unprivileged exploit.
             review_score = min(100, score + signal_score)
+            bounty_score, bounty_factors, material_fund_flow = bounty_worthiness(
+                source, paths, root, entry, score, signal_score, findings
+            )
+            ai_eligible = review_score >= min_score and bounty_score >= 45 and material_fund_flow
             result.update({
                 "score": score,
                 "findings": findings,
@@ -1113,7 +1176,10 @@ def scan_target(entry, ai=False, min_score=30):
                 "goplus_risk_signals": goplus_signals,
                 "transparency_flags": transparency_flags,
                 "review_score": review_score,
-                "research_disposition": "eligible_for_code_review" if review_score >= min_score else "low_priority_code_signals",
+                "bounty_worthiness_score": bounty_score,
+                "bounty_worthiness_factors": bounty_factors,
+                "material_fund_flow_candidate": material_fund_flow,
+                "research_disposition": "eligible_for_code_review" if ai_eligible else "low_priority_or_no_fund_flow",
                 "status": "screened",
             })
             if ai and review_score >= min_score:
@@ -1126,6 +1192,8 @@ def scan_target(entry, ai=False, min_score=30):
                 result["status"] = "reviewed"
             elif ai:
                 reasons = []
+                if not ai_eligible:
+                    reasons.append(f"Fund-flow/bounty-worthiness prefilter not met: score={bounty_score}, material_flow={material_fund_flow}.")
                 if review_score < min_score:
                     reasons.append(
                         f"Source-based review priority {review_score} is below --min-score {min_score}."
