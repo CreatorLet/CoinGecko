@@ -1244,6 +1244,99 @@ def _matching_brace(source, opening):
     return None
 
 
+def _matching_parenthesis(source, opening):
+    depth = 0
+    quote = None
+    escaped = False
+    line_comment = False
+    block_comment = False
+    i = opening
+    while i < len(source):
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < len(source) else ""
+        if line_comment:
+            if ch == "\n":
+                line_comment = False
+        elif block_comment:
+            if ch == "*" and nxt == "/":
+                block_comment = False
+                i += 1
+        elif quote:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == quote:
+                quote = None
+        elif ch == "/" and nxt == "/":
+            line_comment = True
+            i += 1
+        elif ch == "/" and nxt == "*":
+            block_comment = True
+            i += 1
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return None
+
+
+def _function_body_opening(source, start):
+    """Find a function's opening brace without crossing a declaration semicolon."""
+    paren_depth = 0
+    bracket_depth = 0
+    quote = None
+    escaped = False
+    line_comment = False
+    block_comment = False
+    i = start
+    while i < len(source):
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < len(source) else ""
+        if line_comment:
+            if ch == "\n":
+                line_comment = False
+        elif block_comment:
+            if ch == "*" and nxt == "/":
+                block_comment = False
+                i += 1
+        elif quote:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == quote:
+                quote = None
+        elif ch == "/" and nxt == "/":
+            line_comment = True
+            i += 1
+        elif ch == "/" and nxt == "*":
+            block_comment = True
+            i += 1
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == "(":
+            paren_depth += 1
+        elif ch == ")":
+            paren_depth = max(0, paren_depth - 1)
+        elif ch == "[":
+            bracket_depth += 1
+        elif ch == "]":
+            bracket_depth = max(0, bracket_depth - 1)
+        elif paren_depth == 0 and bracket_depth == 0:
+            if ch == ";":
+                return None
+            if ch == "{":
+                return i
+        i += 1
+    return None
+
+
 def _parameter_names(params):
     names = []
     for item in params.split(","):
@@ -1284,8 +1377,8 @@ def inspect_unprivileged_surface(source_files, findings=None):
         r"\bmodifier\s+([A-Za-z_][A-Za-z_0-9]*)\s*(?:\([^)]*\))?\s*\{",
         flags=re.S,
     )
-    function_pattern = re.compile(
-        r"\bfunction\s+([A-Za-z_][A-Za-z_0-9]*)\s*\((.*?)\)\s*([^{;]*)\{",
+    function_start_pattern = re.compile(
+        r"\bfunction\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(",
         flags=re.S,
     )
     fallback_pattern = re.compile(
@@ -1326,9 +1419,19 @@ def inspect_unprivileged_surface(source_files, findings=None):
             if known_privilege.search(match.group(1)) or guard_pattern.search(modifier_body):
                 privileged_modifiers.add(match.group(1))
 
-        for match in function_pattern.finditer(code):
-            name, params, header = match.group(1), match.group(2), match.group(3)
-            opening = match.end() - 1
+        for match in function_start_pattern.finditer(code):
+            name = match.group(1)
+            params_open = match.end() - 1
+            params_close = _matching_parenthesis(code, params_open)
+            if params_close is None:
+                continue
+            opening = _function_body_opening(code, params_close + 1)
+            if opening is None:
+                # Interface and abstract declarations end in a semicolon and
+                # are not executable public entrypoints.
+                continue
+            header = code[params_close + 1:opening]
+            params = code[params_open + 1:params_close]
             closing = _matching_brace(code, opening)
             if closing is None:
                 continue
