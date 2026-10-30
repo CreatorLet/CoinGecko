@@ -206,3 +206,20 @@ The scanner will then use Etherscan and GoPlus fallbacks for creator context. An
 After resolving creation metadata, the scanner performs **one extra static review at most**: it inspects a `factory_candidate` only when the creator also made at least one nearby call to that same destination within the bounded history response. The result is stored in `related_contract_reviews`. It does not recursively follow candidate contracts. If verified source is missing or the candidate is an unsupported proxy, it records a low-transparency skip and continues. With `--ai`, DeepSeek receives the linked contract only if its own Slither/source-pattern score reaches the configured threshold. GoPlus risk flags alone do not trigger AI review.
 
 This helps inspect likely factory/launchpad code without aggressively chasing every related address. A candidate factory is not necessarily a fund-holding protocol; review its role and source before spending further time on it.
+
+
+## No-new-API / no-RPC shortlist (Colab)
+
+You **do not need** to configure `BSC_RPC_URL` or add another API key to run this path. The public Sourcify verified-contract feed and existing GitHub/GeckoTerminal discovery steps work without new keys. Skip `frontier.py deployments` (and `mempool`), as those commands require RPC access.
+
+```bash
+python frontier.py github --days 7 --limit 20 --per-query 10 --out github-discovery.json
+python frontier.py scan-github --input github-discovery.json --limit 10 --out github-report.json
+python frontier.py verified --network bsc --limit 100 --out frontier-verified-bsc.json
+python hunter.py scan --input frontier-verified-bsc.json --min-liquidity 0 --limit 12 --min-score 30 --out verified-screened-bsc.json
+python shortlist.py --github github-report.json --verified frontier-verified-bsc.json --screened verified-screened-bsc.json --limit 30 --out shortlist.json
+```
+
+`hunter.py scan` recognizes `target_kind=verified_contract` and does **not** require pool liquidity for those entries. It uses the existing verified-source providers and local Slither. Keep `--ai` off until a candidate is manually worth pursuing. `shortlist.py` uses **local report files only**, makes no requests and sends no content to DeepSeek. Its priority score is merely a research queue, **not** verified fund exposure, exploitability, deployment confirmation for GitHub-only source, or bounty eligibility.
+
+If using Colab, run `!git pull origin main` and prefix each command with `!`. Save each produced JSON file individually; pasting notebook transcript plus arrays into `report.json` is not machine-readable JSON.
