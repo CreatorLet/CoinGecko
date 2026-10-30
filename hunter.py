@@ -1075,12 +1075,18 @@ def bounty_worthiness(source, paths, root, entry, score, signal_score, findings)
     if strong:
         score_out += 10
         factors.append("high-severity static warnings requiring validation")
-    if not custody or not transfers:
-        score_out -= 25
-        factors.append("no demonstrated financial entrypoint plus asset movement")
-    if strong and transfers and not custody:
-        factors.append("high-impact detector without a recognized fund-entrypoint; manual review needed")
-    return max(0, min(100, score_out)), factors, bool(custody and transfers or (strong and transfers))
+    # Atypical identifiers and obfuscated code should not be excluded.
+    # A source-pattern detector, meaningful Slither warning, or token/native
+    # value movement can independently qualify for human/AI review.
+    meaningful_findings = [f for f in findings if f.get("impact") in ("High", "Medium")
+                           and not f.get("triage_note")]
+    source_evidence = score + signal_score > 0
+    material = bool(transfers or meaningful_findings or source_evidence)
+    if not custody and material:
+        factors.append("unnamed or nonstandard financial logic: retain for review")
+    elif not material:
+        factors.append("no static evidence of fund movement; keep result for manual filtering")
+    return max(0, min(100, score_out)), factors, material
 
 
 def scan_target(entry, ai=False, min_score=30):
@@ -1180,7 +1186,9 @@ def scan_target(entry, ai=False, min_score=30):
             bounty_score, bounty_factors, material_fund_flow = bounty_worthiness(
                 source, paths, root, entry, score, signal_score, findings
             )
-            ai_eligible = bounty_score >= 50 and material_fund_flow and (review_score >= min_score or bounty_score >= 65)
+            ai_eligible = material_fund_flow and (
+                review_score >= min_score or bounty_score >= 50
+            )
             result.update({
                 "score": score,
                 "findings": findings,
