@@ -1032,8 +1032,8 @@ def bounty_worthiness(source, paths, root, entry, score, signal_score, findings)
         factors.append("publicly verified/deployed candidate")
     else:
         factors.append("pool liquidity is contextual, not necessarily controlled by this contract")
-    custody = bool(re.search(r"\\b(escrow|deposit|withdraw|redeem|borrow|repay|liquidat|claim|settle|vault|collateral|stake|swap)\\b", code))
-    transfers = bool(re.search(r"(safetransfer|transferfrom|\\.transfer\\(|\\.call\\s*\\{value|raw_call)", code))
+    custody = bool(re.search(r"\b(escrow|deposit|withdraw|redeem|borrow|repay|liquidat|claim|settle|vault|collateral|stake|swap)\b", code))
+    transfers = bool(re.search(r"(safetransfer|transferfrom|\.transfer\(|\.call\s*\{value|raw_call)", code))
     accounting = bool(re.search(r"(totalassets|totalsupply|pendingbalance|collateral|reserve|shares|liabilit|balanceof|debt|accrued)", code))
     if custody and transfers:
         score_out += 24
