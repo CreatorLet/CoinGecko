@@ -1322,6 +1322,210 @@ def candidate_review_gate(exposure, surface, minimum_usd=500.0):
     }
 
 
+WRAPPED_NATIVE_TOKENS = {
+    "eth": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "bsc": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    "base": "0x4200000000000000000000000000000000000006",
+    "arbitrum": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "polygon_pos": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    "optimism": "0x4200000000000000000000000000000000000006",
+}
+
+
+def _safe_float(value):
+    try:
+        return max(0.0, float(value or 0))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _etherscan_result(network, params):
+    key = (os.getenv("ETHERSCAN_API_KEY") or "").strip()
+    if not key:
+        return None
+    request = {"chainid": CHAIN_IDS[network], "apikey": key, **params}
+    try:
+        payload = get_json(ETHERSCAN, request)
+        if str(payload.get("status")) != "1":
+            return None
+        return payload.get("result")
+    except (requests.RequestException, RuntimeError, ValueError, TypeError):
+        return None
+
+
+@lru_cache(maxsize=32)
+def _gecko_token_price(network, token_address):
+    try:
+        payload = get_json(
+            f"{GECKO}/networks/{network}/tokens/{token_address}",
+            headers={"accept": "application/json"},
+        )
+        attrs = (payload.get("data") or {}).get("attributes") or {}
+        return _safe_float(attrs.get("price_usd"))
+    except (requests.RequestException, RuntimeError, ValueError, TypeError):
+        return 0.0
+
+
+@lru_cache(maxsize=64)
+def _etherscan_token_info(network, token_address):
+    result = _etherscan_result(network, {
+        "module": "token", "action": "tokeninfo", "contractaddress": token_address,
+    })
+    if isinstance(result, list) and result:
+        result = result[0]
+    if not isinstance(result, dict):
+        result = {}
+    try:
+        decimals = int(result.get("tokenDecimal") or result.get("decimals"))
+    except (TypeError, ValueError):
+        decimals = None
+    price = _safe_float(result.get("tokenPriceUSD") or result.get("priceUsd"))
+    return {"decimals": decimals, "price_usd": price}
+
+
+def _asset_addresses_from_source(source, paths, root, candidate_address, max_addresses=5):
+    found = []
+    seen = {candidate_address.lower(), "0x" + "0" * 40}
+    code_parts = []
+    for path in paths:
+        try:
+            if any(part in str(path).lower().split("/") for part in (
+                "test", "tests", "mock", "mocks", "examples", "tutorials"
+            )):
+                continue
+            code_parts.append((root / path).read_text(encoding="utf-8", errors="ignore"))
+        except OSError:
+            continue
+    code = "\n".join(code_parts)
+    for match in re.finditer(r"0x[a-fA-F0-9]{40}", code):
+        address = match.group(0)
+        key = address.lower()
+        if key in seen:
+            continue
+        context = code[max(0, match.start() - 240):match.start() + 80].lower()
+        if not re.search(
+            r"(token|asset|collateral|currency|usdt|usdc|busd|weth|wbnb|dai|stable|"
+            r"underlying|payment|coin|reserve|vault)",
+            context,
+        ):
+            continue
+        seen.add(key)
+        found.append(address)
+        if len(found) >= max_addresses:
+            break
+
+    constructor_args = source.get("ConstructorArguments") or source.get("constructorArguments") or ""
+    constructor_args = re.sub(r"^0x", "", str(constructor_args), flags=re.I)
+    if len(constructor_args) >= 64 and re.fullmatch(r"[0-9a-fA-F]+", constructor_args):
+        for offset in range(0, len(constructor_args) - 63, 64):
+            word = constructor_args[offset:offset + 64]
+            address = "0x" + word[-40:]
+            key = address.lower()
+            if key in seen or int(address[2:], 16) == 0:
+                continue
+            seen.add(key)
+            found.append(address)
+            if len(found) >= max_addresses:
+                break
+    return found[:max_addresses]
+
+
+def estimate_asset_exposure(network, address, entry, source, paths, root):
+    """
+    Estimate observable exposure without a dedicated RPC URL.
+    Pool liquidity and direct contract balances are separate; they are not summed.
+    """
+    market_liquidity = _safe_float(
+        entry.get("total_reserve_usd") or entry.get("reserve_usd") or entry.get("pool_liquidity_usd")
+    )
+    direct_native_usd = 0.0
+    direct_token_usd = 0.0
+    checks = []
+    if market_liquidity < 500.0:
+        wrapped = WRAPPED_NATIVE_TOKENS.get(network)
+        native_price = _gecko_token_price(network, wrapped) if wrapped else 0.0
+        native_balance = _etherscan_result(network, {
+            "module": "account", "action": "balance", "address": address, "tag": "latest",
+        })
+        try:
+            native_amount = int(native_balance or 0) / 1e18
+        except (TypeError, ValueError):
+            native_amount = 0.0
+        if native_price > 0:
+            direct_native_usd = native_amount * native_price
+        checks.append({
+            "asset": "native coin", "balance": native_amount, "price_usd": native_price,
+            "value_usd": direct_native_usd,
+            "provider": "Etherscan balance + GeckoTerminal wrapped-native price",
+        })
+
+        for token_address in _asset_addresses_from_source(source, paths, root, address, max_addresses=5):
+            info = _etherscan_token_info(network, token_address)
+            decimals = info.get("decimals")
+            price = info.get("price_usd") or _gecko_token_price(network, token_address)
+            raw_balance = _etherscan_result(network, {
+                "module": "account", "action": "tokenbalance",
+                "contractaddress": token_address, "address": address, "tag": "latest",
+            })
+            try:
+                if decimals is None:
+                    raise ValueError("token decimals unavailable")
+                amount = int(raw_balance or 0) / (10 ** decimals)
+                value = amount * price if price > 0 else 0.0
+            except (TypeError, ValueError, OverflowError):
+                amount, value = 0.0, 0.0
+            direct_token_usd += value
+            checks.append({
+                "asset_contract": token_address, "balance": amount, "decimals": decimals,
+                "price_usd": price, "value_usd": value,
+                "provider": "Etherscan tokenbalance/tokeninfo with GeckoTerminal price fallback",
+            })
+            time.sleep(0.20)
+
+    direct_custody_usd = direct_native_usd + direct_token_usd
+    economic_exposure = max(market_liquidity, direct_custody_usd)
+    return {
+        "minimum_usd": 500.0,
+        "market_pool_liquidity_usd": market_liquidity,
+        "direct_native_balance_usd": direct_native_usd,
+        "direct_token_balances_usd": direct_token_usd,
+        "direct_custody_usd_estimate": direct_custody_usd,
+        "economic_exposure_usd_estimate": economic_exposure,
+        "basis": (
+            "max(associated pool liquidity, direct balances observed at the contract); "
+            "not protocol TVL and not a claim that pool assets are controlled by this contract"
+        ),
+        "balance_checks": checks[:6],
+        "passed_500_usd_threshold": economic_exposure >= 500.0,
+        "balance_lookup_attempted": market_liquidity < 500.0,
+    }
+
+
+def candidate_brief(result):
+    surface = result.get("unprivileged_surface") or {}
+    exposure = result.get("asset_exposure") or {}
+    return {
+        "address": result.get("address"), "network": result.get("network"),
+        "name": result.get("contract_name") or result.get("name"),
+        "target_kind": result.get("target_kind"), "status": result.get("status"),
+        "source_provider": result.get("source_provider"), "verified_at": result.get("verified_at"),
+        "economic_exposure_usd_estimate": exposure.get("economic_exposure_usd_estimate"),
+        "market_pool_liquidity_usd": exposure.get("market_pool_liquidity_usd"),
+        "direct_custody_usd_estimate": exposure.get("direct_custody_usd_estimate"),
+        "review_gate": result.get("review_gate"),
+        "slither_score": result.get("score"), "source_signal_score": result.get("source_signal_score"),
+        "top_findings": [
+            {"check": f.get("check"), "impact": f.get("impact"), "confidence": f.get("confidence"),
+             "description": str(f.get("description") or "")[:500]}
+            for f in (result.get("findings") or [])[:12]
+            if f.get("impact") in ("High", "Medium", "Low")
+        ],
+        "unprivileged_functions": (surface.get("unprivileged_asset_functions") or [])[:8],
+        "intermediary_evidence": (surface.get("intermediary_functions") or [])[:5],
+        "transparency_flags": result.get("transparency_flags") or [],
+    }
+
+
 def scan_target(entry, ai=False, min_score=30):
     net, address = entry["network"], entry["address"]
     result = {"network": net, "address": address, "pool": entry.get("pool"),
