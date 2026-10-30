@@ -1,23 +1,35 @@
 # CoinGecko smart contract screener
 
 
-## No-extra-API BSC workflow (October 2026)
+## Autonomous Hunter (recommended)
 
-The workflow below uses only existing optional credentials: `ETHERSCAN_API_KEY`, `GOPLUS_API_KEY`, `GOPLUS_API_SECRET`, `NODEREAL_API_KEY`, `DEEPSEEK_API_KEY`, and `GITHUB_TOKEN`. You do **not** need to configure `BSC_RPC_URL`; skip `frontier.py deployments` and `mempool`, which are direct-RPC commands.
+This uses only the credentials already configured in your environment: `ETHERSCAN_API_KEY`, `GOPLUS_API_KEY`, `GOPLUS_API_SECRET`, `NODEREAL_API_KEY`, and `DEEPSEEK_API_KEY`. It does **not** require `BSC_RPC_URL` or another API key. The optional GitHub discovery commands use `GITHUB_TOKEN`.
 
 ```bash
-python frontier.py verified --network bsc --limit 100 --out frontier-verified-bsc.json
-python hunter.py scan --input frontier-verified-bsc.json --limit 30 --min-score 30 --out verified-review.json
-python hunter.py discover --network bsc --pages 2 --limit 50 --out bsc-discovery.json
-python hunter.py scan --input bsc-discovery.json --min-liquidity 50000 --limit 15 --min-score 30 --out bsc-review.json
+python hunter.py autopilot --network bsc --pages 3 --limit 50 --verified-limit 100 --max-screened 40 --max-ai-reviews 6 --out hunter-autopilot.json
 ```
 
-The scanner now adds `bounty_worthiness_score` (0–100), `bounty_worthiness_factors`, and `material_fund_flow_candidate` alongside the existing Slither/source warning `review_score`. The new score favors verified code with real asset-flow/accounting entrypoints. It penalizes plain tokens and missing fund handling. **It is only a research ranking, never an exploitability judgment or confirmed contract TVL.** Pool liquidity is context; it does not mean the token contract controls that liquidity. For AI, add `--ai` only after reading an initial report: DeepSeek is restricted to material fund-flow candidates whose new ranking clears its threshold. High-ranking fund-handling candidates can be considered even if generic syntax warnings are scarce, avoiding false negatives.
+Hunter discovers new GeckoTerminal pools and newly verified Sourcify contracts, then runs source retrieval, NodeReal/Etherscan/GoPlus context, Slither and first-party source checks. It estimates the candidate's observable value and checks public/external entry points before DeepSeek is shown a compact brief. **DeepSeek only receives a candidate when both conditions pass:**
+- There is a plausible unprivileged/public entry point into asset-moving or external-call logic; and
+- The observable value is at least **$500**, or an unprivileged intermediary/callback/forwarder path merits the specific low-value exception.
 
+Admin/owner/governance-only powers do not qualify on their own. Unusual function names are not required: Hunter follows internal helper calls and recognises typed interface calls as well as raw `.call` patterns. DeepSeek decides whether a surfaced path is genuinely attacker-controlled or merely calls a fixed trusted component.
 
-Minimal pipeline: **GeckoTerminal new pools -> reserve/volume filter -> Etherscan/Sourcify source -> Slither + GoPlus token-risk signals -> optional DeepSeek**.
+The exposure estimate uses the maximum of associated token/pool liquidity and directly observed contract-held balances; it does **not** add them together. Pool liquidity is an economic-size proxy, not proof that the contract owns or controls those funds. The report marks whether direct balances were checked. A missing price or unavailable explorer response is not proof of a zero balance.
 
-No Immunefi matching, Foundry, transaction execution, or automated live-contract testing. Slither output is a **screening signal**, not proof of exploitable fund loss.
+DeepSeek operates Hunter through five allowlisted commands: discover, screen the next candidate, deep-review the current candidate, skip it, and finish. It cannot run arbitrary shell commands. Each review is saved to the report; a separate checkpoint tracks processed addresses and review usage. If the process stops while a candidate awaits a decision, the next run re-screens that address.
+
+### Run continuously on a server
+
+```bash
+python hunter.py autopilot --network bsc --continuous --interval-seconds 900 --max-hours 0 --max-ai-reviews 6 --out hunter-autopilot.json
+```
+
+This checks for fresh candidates every 15 minutes and stops after six full DeepSeek reviews in total. Increase `--max-ai-reviews` to allow more reviews; set it to `0` for unlimited reviews (uncapped token spend). Set `--max-hours 24` for a one-day service window. Run it under `systemd`, Supervisor, Docker restart policy, or another process manager on a machine with persistent storage. Keep the report and checkpoint files on that storage; do not put your `.env` in GitHub.
+
+Use `python hunter.py autopilot --help` to see all limits. The normal one-cycle run is safer for your first run.
+
+No transaction execution, exploit execution, or live-contract testing is performed. Slither and source heuristics are screening evidence, not proof of an exploitable vulnerability.
 
 ## Install
 
@@ -79,22 +91,22 @@ The audit output keeps current/upcoming opportunities separate from unverified p
 
 These feeds are incomplete by design: Sourcify verification time is not necessarily deployment time; block scans miss internal factory CREATE/CREATE2 events; and a WebSocket provider does not expose a global mempool. The scanner performs passive source analysis and read-only data collection only.
 
-## Step 3: Optional DeepSeek review
+## Step 3: Optional gated DeepSeek review
 
 ```bash
-python hunter.py scan --input discovery.json --min-liquidity 10000 --min-score 30 --limit 5 --ai --out report.json
+python hunter.py scan --input discovery.json --min-exposure-usd 500 --limit 5 --ai --out report.json
 ```
 
-`--min-score` is a rough triage threshold derived from Slither alerts and first-party source pattern checks only. GoPlus risk flags are recorded separately and passed as context, but do not independently trigger DeepSeek because they often describe owner-controlled functions or trading risks rather than an unprivileged fund-loss path. The threshold is not confirmed vulnerability severity or proof of exploitability.
+The same hard gate applies to both manual and autonomous runs: DeepSeek only runs when the scanner detects a plausible unprivileged public/external path and either $500 or more of observable value or a credible unprivileged intermediary/callback exception. `--min-score` remains a report-ranking hint; it is no longer the AI access-control gate.
 
 ## Limitations
 
 - Sources need to be verified and compile locally. If neither Etherscan nor Sourcify supplies source, the target is marked `skipped_low_transparency`; it is not treated as safe.
-- Proxies whose implementation is not analyzed are marked `skipped_low_transparency` and skipped rather than guessed at.
+- One verified proxy implementation is followed and analyzed at the proxy address; nested or unresolved proxies are marked `skipped_low_transparency` rather than guessed at.
 - Token contracts frequently lack the money-managing logic of an associated DeFi protocol.
 - GeckoTerminal's reported reserves can be volatile or manipulated, so liquidity is only a first-pass screening metric.
 - The tool doesn't assert Immunefi eligibility or authorization. Use passive analysis of publicly available code only; follow each program's rules before further testing or disclosure.
-- No Foundry or on-chain interactions are used.
+- Etherscan/GeckoTerminal lookups are read-only; no transactions are sent and no live exploit tests are run.
 
 ## Colab: rerun after compiler fix
 
@@ -196,7 +208,9 @@ This hunter is prioritizing potential **unprivileged code-level vulnerabilities*
 - skips a contract when neither Etherscan nor Sourcify can provide verified source (`skipped_low_transparency`);
 - skips proxy targets whose implementation isn't handled by this version;
 - records GoPlus hidden-owner / non-open-source flags as transparency caveats;
-- does not let GoPlus-only flags, such as minting/blacklist/tax ownership controls, automatically trigger a DeepSeek call. DeepSeek requires Slither or first-party source-pattern signals to reach `--min-score`.
+- records GoPlus flags as context but does not treat token-owner controls as unprivileged vulnerabilities;
+- estimates economic exposure using pool/token liquidity and, when needed, read-only direct balance checks;
+- requires a public/unprivileged code path plus the $500 value floor or the intermediary exception before DeepSeek is called.
 
 These exclusions conserve research time; **they do not establish that an opaque or skipped contract is secure or attack-proof**. If no related deployments are found, that stage ends for that token and the program proceeds to static analysis and then the next discovery candidate.
 
@@ -218,7 +232,7 @@ The scanner will then use Etherscan and GoPlus fallbacks for creator context. An
 
 ## Bounded factory-candidate review
 
-After resolving creation metadata, the scanner performs **one extra static review at most**: it inspects a `factory_candidate` only when the creator also made at least one nearby call to that same destination within the bounded history response. The result is stored in `related_contract_reviews`. It does not recursively follow candidate contracts. If verified source is missing or the candidate is an unsupported proxy, it records a low-transparency skip and continues. With `--ai`, DeepSeek receives the linked contract only if its own Slither/source-pattern score reaches the configured threshold. GoPlus risk flags alone do not trigger AI review.
+After resolving creation metadata, the scanner performs **one extra static review at most**: it inspects a `factory_candidate` only when the creator also made at least one nearby call to that same destination within the bounded history response. The result is stored in `related_contract_reviews`. It does not recursively follow candidate contracts. If verified source is missing or the candidate is an unsupported proxy, it records a low-transparency skip and continues. With `--ai`, a linked contract must pass the same unprivileged-surface and $500/intermediary gate as the main target. GoPlus risk flags alone do not trigger AI review.
 
 This helps inspect likely factory/launchpad code without aggressively chasing every related address. A candidate factory is not necessarily a fund-holding protocol; review its role and source before spending further time on it.
 
