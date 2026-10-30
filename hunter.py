@@ -46,37 +46,54 @@ def get_json(url, params=None, headers=None):
     raise RuntimeError("Request failed")
 
 
+def discover_gecko_page(network, page):
+    """Fetch one page of new pools; the free endpoint exposes pages 1-10."""
+    if page < 1 or page > 10:
+        raise ValueError("GeckoTerminal new-pool page must be between 1 and 10")
+    payload = get_json(
+        f"{GECKO}/networks/{network}/new_pools",
+        {"page": page},
+        {"accept": "application/json"},
+    )
+    pools = []
+    seen = set()
+    for item in payload.get("data", []):
+        attrs = item.get("attributes", {})
+        rels = item.get("relationships", {})
+        base = (rels.get("base_token") or {}).get("data") or {}
+        quote = (rels.get("quote_token") or {}).get("data") or {}
+        token = base.get("id", "").split("_")[-1]
+        if not ADDRESS.fullmatch(token) or token.lower() in seen:
+            continue
+        seen.add(token.lower())
+        pools.append({
+            "network": network, "pool": attrs.get("address"),
+            "name": attrs.get("name"), "created_at": attrs.get("pool_created_at"),
+            "base_token": token, "quote_token": quote.get("id", "").split("_")[-1],
+            "reserve_usd": attrs.get("reserve_in_usd"),
+            "volume_24h_usd": (attrs.get("volume_usd") or {}).get("h24"),
+        })
+    return pools
+
+
 def discover(network, pages=1, limit=20):
+    """Finite manual discovery helper retained for the discover subcommand."""
     if pages < 1 or limit < 1:
         raise ValueError("pages and limit must be positive")
     pools = []
     seen = set()
     for page in range(1, min(pages, 10) + 1):
-        payload = get_json(f"{GECKO}/networks/{network}/new_pools", {"page": page}, {"accept": "application/json"})
-        for item in payload.get("data", []):
-            attrs = item.get("attributes", {})
-            rels = item.get("relationships", {})
-            base = (rels.get("base_token") or {}).get("data") or {}
-            quote = (rels.get("quote_token") or {}).get("data") or {}
-            token = base.get("id", "").split("_")[-1]
-            if not ADDRESS.fullmatch(token) or token.lower() in seen:
+        for item in discover_gecko_page(network, page):
+            token = item["base_token"]
+            if token.lower() in seen:
                 continue
             seen.add(token.lower())
-            pools.append({
-                "network": network,
-                "pool": attrs.get("address"),
-                "name": attrs.get("name"),
-                "created_at": attrs.get("pool_created_at"),
-                "base_token": token,
-                "quote_token": quote.get("id", "").split("_")[-1],
-                "reserve_usd": attrs.get("reserve_in_usd"),
-                "volume_24h_usd": (attrs.get("volume_usd") or {}).get("h24"),
-            })
+            pools.append(item)
             if len(pools) >= limit:
                 return pools
-        time.sleep(1.3)
+        if page < min(pages, 10):
+            time.sleep(1.3)
     return pools
-
 
 def sourcify_source(network, address):
     """Fallback lookup in Sourcify's free public verification database."""
