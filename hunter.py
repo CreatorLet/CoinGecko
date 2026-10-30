@@ -1166,7 +1166,7 @@ def scan_target(entry, ai=False, min_score=30):
             bounty_score, bounty_factors, material_fund_flow = bounty_worthiness(
                 source, paths, root, entry, score, signal_score, findings
             )
-            ai_eligible = review_score >= min_score and bounty_score >= 45 and material_fund_flow
+            ai_eligible = bounty_score >= 50 and material_fund_flow and (review_score >= min_score or bounty_score >= 65)
             result.update({
                 "score": score,
                 "findings": findings,
