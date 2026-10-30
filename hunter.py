@@ -1032,9 +1032,22 @@ def bounty_worthiness(source, paths, root, entry, score, signal_score, findings)
         factors.append("publicly verified/deployed candidate")
     else:
         factors.append("pool liquidity is contextual, not necessarily controlled by this contract")
-    custody = bool(re.search(r"\b(escrow|deposit|withdraw|redeem|borrow|repay|liquidat|claim|settle|vault|collateral|stake|swap)\b", code))
-    transfers = bool(re.search(r"(safetransfer|transferfrom|\.transfer\(|\.call\s*\{value|raw_call)", code))
-    accounting = bool(re.search(r"(totalassets|totalsupply|pendingbalance|collateral|reserve|shares|liabilit|balanceof|debt|accrued)", code))
+    # Remove comments before checking for callable fund handling. Names in
+    # documentation, interfaces, and imported libraries should not alone qualify.
+    code = re.sub(r"/\\*.*?\\*/|//[^\\n]*", "", code, flags=re.S)
+    financial_functions = re.findall(
+        r"\\bfunction\\s+([A-Za-z_][A-Za-z_0-9]*)\\s*\\([^;{]*\\)[^{;]*\\{",
+        code, flags=re.S,
+    )
+    custody = any(re.search(
+        r"(deposit|withdraw|redeem|borrow|repay|liquidat|claim|settle|stake|unstake|swap|"
+        r"purchase|buy|sell|mint|refund|distribut|payout|collect|fund|escrow)",
+        fn) for fn in financial_functions)
+    transfers = bool(re.search(r"(safetransfer|transferfrom|\\.transfer\\(|\\.call\\s*\\{value|raw_call)", code))
+    accounting = bool(re.search(
+        r"(totalassets|pendingbalance|collateral|reserve|shares|liabilit|debt|accrued|"
+        r"depositbalance|withdrawalbalance|totalpending|totalescrow)", code))
+    strong = [f for f in findings if f.get("impact") == "High" and not f.get("triage_note")]
     if custody and transfers:
         score_out += 24
         factors.append("fund-moving entry points")
@@ -1059,14 +1072,15 @@ def bounty_worthiness(source, paths, root, entry, score, signal_score, findings)
     ):
         score_out -= 35
         factors.append("plain token / no demonstrated protocol custody")
-    strong = [f for f in findings if f.get("impact") == "High"]
     if strong:
         score_out += 10
         factors.append("high-severity static warnings requiring validation")
     if not custody or not transfers:
         score_out -= 25
         factors.append("no demonstrated financial entrypoint plus asset movement")
-    return max(0, min(100, score_out)), factors, bool(custody and transfers)
+    if strong and transfers and not custody:
+        factors.append("high-impact detector without a recognized fund-entrypoint; manual review needed")
+    return max(0, min(100, score_out)), factors, bool(custody and transfers or (strong and transfers))
 
 
 def scan_target(entry, ai=False, min_score=30):
