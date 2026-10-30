@@ -84,7 +84,7 @@ class IncrementalDiscoveryTests(unittest.TestCase):
         self.assertEqual(state["gecko_page_next"], 5)
         self.assertEqual(state["sourcify_after_match_id"], "200")
         self.assertEqual([row["address"] for row in state["candidates"]], [
-            pending["address"], pool["base_token"], verified["address"],
+            pending["address"], verified["address"], pool["base_token"],
         ])
         self.assertEqual(result["new_unique_candidates"], 2)
 
