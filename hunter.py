@@ -2169,6 +2169,8 @@ def _save_autopilot_state(state):
         "deepseek_reviews_used": state["review_count"],
         "review_day_utc": state["review_day_utc"],
         "deepseek_reviews_today": state["daily_review_count"],
+        "screen_day_utc": state["screen_day_utc"],
+        "contracts_screened_today": state["daily_screened_count"],
         "cycles_completed": state["cycles_completed"],
         "current_address": (
             state["current"].get("address")
@@ -2278,6 +2280,13 @@ def _screen_next_autopilot_candidate(state):
     while state["next_index"] < len(state.get("candidates") or []):
         if state["cycle_screened"] >= state["max_screened"]:
             break
+        if state["daily_screened_count"] >= state["max_screened_per_day"]:
+            return {
+                "status": "daily_screen_budget_reached",
+                "contracts_screened_today": state["daily_screened_count"],
+                "daily_screen_budget": state["max_screened_per_day"],
+                "auto_skips": auto_skips[-8:],
+            }
         if state["review_limit"] > 0 and state["daily_review_count"] >= state["review_limit"]:
             return {
                 "status": "daily_review_budget_reached",
@@ -2298,8 +2307,10 @@ def _screen_next_autopilot_candidate(state):
             min_exposure_usd=state["minimum_exposure_usd"],
             include_source=True,
         )
-        state["processed_addresses"].add(identity)
+        state["daily_screened_count"] += 1
         state["cycle_screened"] += 1
+        if result.get("status") == "screened":
+            state["processed_addresses"].add(identity)
         result["autopilot_cycle"] = state["cycles_completed"] + 1
         result["autopilot_decision"] = "awaiting_deepseek_triage"
         existing_index = next(
@@ -2593,6 +2604,13 @@ def run_autopilot(args):
             if checkpoint.get("review_day_utc") == time.strftime("%Y-%m-%d", time.gmtime())
             else 0
         ),
+        "screen_day_utc": str(checkpoint.get("screen_day_utc") or time.strftime("%Y-%m-%d", time.gmtime())),
+        "daily_screened_count": (
+            int(checkpoint.get("contracts_screened_today") or 0)
+            if checkpoint.get("screen_day_utc") == time.strftime("%Y-%m-%d", time.gmtime())
+            else 0
+        ),
+        "max_screened_per_day": args.max_screened_per_day,
         "processed_addresses": {
             (args.network, str(address).lower())
             for address in (checkpoint.get("processed_addresses") or [])
@@ -2617,11 +2635,23 @@ def run_autopilot(args):
             state["review_day_utc"] = today_utc
             state["daily_review_count"] = 0
             _save_autopilot_state(state)
+        if state["screen_day_utc"] != today_utc:
+            state["screen_day_utc"] = today_utc
+            state["daily_screened_count"] = 0
+            _save_autopilot_state(state)
         if args.max_hours > 0 and time.time() - start >= args.max_hours * 3600:
             break
-        if args.max_ai_reviews > 0 and state["daily_review_count"] >= args.max_ai_reviews:
+        review_cap_reached = (
+            args.max_ai_reviews > 0
+            and state["daily_review_count"] >= args.max_ai_reviews
+        )
+        screen_cap_reached = (
+            args.max_screened_per_day > 0
+            and state["daily_screened_count"] >= args.max_screened_per_day
+        )
+        if review_cap_reached or screen_cap_reached:
             if not args.continuous:
-                print("[Hunter autopilot] Daily DeepSeek review budget reached.")
+                print("[Hunter autopilot] Daily screening/review budget reached.")
                 break
             now = time.gmtime()
             seconds_until_utc_midnight = (
@@ -2632,8 +2662,9 @@ def run_autopilot(args):
                 remaining = args.max_hours * 3600 - (time.time() - start)
                 wait_seconds = min(wait_seconds, max(1, int(remaining)))
             print(
-                f"[Hunter autopilot] Daily DeepSeek budget reached "
-                f"({state['daily_review_count']}/{args.max_ai_reviews}); "
+                "[Hunter autopilot] Daily budget reached "
+                f"(screens={state['daily_screened_count']}/{args.max_screened_per_day}, "
+                f"reviews={state['daily_review_count']}/{args.max_ai_reviews or 'unlimited'}); "
                 f"waiting {wait_seconds}s for UTC reset or run limit."
             )
             time.sleep(wait_seconds)
@@ -2655,8 +2686,9 @@ def run_autopilot(args):
         print(
             f"[Hunter autopilot] Cycle complete: screened={state['cycle_screened']}, "
             f"DeepSeek reviews total={state['review_count']} "
-        f"today={state['daily_review_count']}/{state['review_limit'] or 'unlimited'}, "
-        f"reason={state.get('finish_reason')}"
+            f"today={state['daily_review_count']}/{state['review_limit'] or 'unlimited'}, "
+            f"screens_today={state['daily_screened_count']}/{state['max_screened_per_day']}, "
+            f"reason={state.get('finish_reason')}"
         )
         if not args.continuous:
             break
