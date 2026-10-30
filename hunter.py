@@ -2167,6 +2167,8 @@ def _save_autopilot_state(state):
         "network": state["network"],
         "processed_addresses": sorted(address for _, address in state["processed_addresses"]),
         "deepseek_reviews_used": state["review_count"],
+        "review_day_utc": state["review_day_utc"],
+        "deepseek_reviews_today": state["daily_review_count"],
         "cycles_completed": state["cycles_completed"],
         "current_address": (
             state["current"].get("address")
@@ -2276,11 +2278,12 @@ def _screen_next_autopilot_candidate(state):
     while state["next_index"] < len(state.get("candidates") or []):
         if state["cycle_screened"] >= state["max_screened"]:
             break
-        if state["review_limit"] > 0 and state["review_count"] >= state["review_limit"]:
+        if state["review_limit"] > 0 and state["daily_review_count"] >= state["review_limit"]:
             return {
-                "status": "review_budget_reached",
+                "status": "daily_review_budget_reached",
                 "deepseek_reviews_used": state["review_count"],
-                "review_budget": state["review_limit"],
+                "deepseek_reviews_today": state["daily_review_count"],
+                "review_budget_per_utc_day": state["review_limit"],
                 "auto_skips": auto_skips[-8:],
             }
         candidate = state["candidates"][state["next_index"]]
@@ -2363,8 +2366,12 @@ def _deep_review_autopilot_candidate(state):
         return {"status": "blocked_by_hunter_gate", "reason": gate.get("reason")}
     if current.get("status") == "reviewed":
         return {"status": "already_reviewed", "address": current.get("address")}
-    if state["review_limit"] > 0 and state["review_count"] >= state["review_limit"]:
-        return {"status": "review_budget_reached", "limit": state["review_limit"]}
+    if state["review_limit"] > 0 and state["daily_review_count"] >= state["review_limit"]:
+        return {
+            "status": "daily_review_budget_reached",
+            "limit_per_utc_day": state["review_limit"],
+            "reviews_used_today": state["daily_review_count"],
+        }
     source_bundle = current.get("_agent_source_files") or []
     if not source_bundle:
         return {"status": "blocked", "reason": "Verified source bundle is unavailable."}
@@ -2400,6 +2407,7 @@ def _deep_review_autopilot_candidate(state):
         )
 
     state["review_count"] += 1
+    state["daily_review_count"] += 1
     current["deepseek"] = assessment
     current["status"] = "reviewed"
     current["autopilot_decision"] = "deepseek_reviewed"
@@ -2579,6 +2587,12 @@ def run_autopilot(args):
         "minimum_exposure_usd": args.min_exposure_usd,
         "review_limit": args.max_ai_reviews,
         "review_count": int(checkpoint.get("deepseek_reviews_used") or 0),
+        "review_day_utc": str(checkpoint.get("review_day_utc") or time.strftime("%Y-%m-%d", time.gmtime())),
+        "daily_review_count": (
+            int(checkpoint.get("deepseek_reviews_today") or 0)
+            if checkpoint.get("review_day_utc") == time.strftime("%Y-%m-%d", time.gmtime())
+            else 0
+        ),
         "processed_addresses": {
             (args.network, str(address).lower())
             for address in (checkpoint.get("processed_addresses") or [])
@@ -2598,6 +2612,32 @@ def run_autopilot(args):
 
     start = time.time()
     while True:
+        today_utc = time.strftime("%Y-%m-%d", time.gmtime())
+        if state["review_day_utc"] != today_utc:
+            state["review_day_utc"] = today_utc
+            state["daily_review_count"] = 0
+            _save_autopilot_state(state)
+        if args.max_hours > 0 and time.time() - start >= args.max_hours * 3600:
+            break
+        if args.max_ai_reviews > 0 and state["daily_review_count"] >= args.max_ai_reviews:
+            if not args.continuous:
+                print("[Hunter autopilot] Daily DeepSeek review budget reached.")
+                break
+            now = time.gmtime()
+            seconds_until_utc_midnight = (
+                86400 - (now.tm_hour * 3600 + now.tm_min * 60 + now.tm_sec) + 2
+            )
+            wait_seconds = seconds_until_utc_midnight
+            if args.max_hours > 0:
+                remaining = args.max_hours * 3600 - (time.time() - start)
+                wait_seconds = min(wait_seconds, max(1, int(remaining)))
+            print(
+                f"[Hunter autopilot] Daily DeepSeek budget reached "
+                f"({state['daily_review_count']}/{args.max_ai_reviews}); "
+                f"waiting {wait_seconds}s for UTC reset or run limit."
+            )
+            time.sleep(wait_seconds)
+            continue
         state["finished"] = False
         state["finish_reason"] = None
         state["discovery_done"] = False
@@ -2614,12 +2654,11 @@ def run_autopilot(args):
         _save_autopilot_state(state)
         print(
             f"[Hunter autopilot] Cycle complete: screened={state['cycle_screened']}, "
-            f"DeepSeek reviews used={state['review_count']}, reason={state.get('finish_reason')}"
+            f"DeepSeek reviews total={state['review_count']} "
+        f"today={state['daily_review_count']}/{state['review_limit'] or 'unlimited'}, "
+        f"reason={state.get('finish_reason')}"
         )
         if not args.continuous:
-            break
-        if args.max_ai_reviews > 0 and state["review_count"] >= args.max_ai_reviews:
-            print("[Hunter autopilot] Global DeepSeek review budget reached; stopping continuous mode.")
             break
         if args.max_hours > 0 and time.time() - start >= args.max_hours * 3600:
             break
@@ -2658,7 +2697,7 @@ def main():
     a.add_argument("--verified-limit", type=int, default=100, help="Recent Sourcify verified contracts")
     a.add_argument("--max-candidates", type=int, default=200, help="Maximum combined candidate set per cycle")
     a.add_argument("--max-screened", type=int, default=40, help="Maximum contracts receiving static screening per cycle")
-    a.add_argument("--max-ai-reviews", type=int, default=6, help="Total DeepSeek full reviews; 0 means unlimited")
+    a.add_argument("--max-ai-reviews", type=int, default=6, help="DeepSeek full reviews per UTC day; 0 means unlimited")
     a.add_argument("--max-agent-steps", type=int, default=140, help="Maximum DeepSeek command decisions per cycle")
     a.add_argument("--min-exposure-usd", type=float, default=500, help="Hard minimum value gate; values below $500 are rejected")
     a.add_argument("--no-verified", dest="include_verified", action="store_false", help="Use GeckoTerminal pool candidates only")
