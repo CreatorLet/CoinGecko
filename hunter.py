@@ -1258,18 +1258,54 @@ def _parameter_names(params):
 
 
 def inspect_unprivileged_surface(source_files, findings=None):
-    """Broad recall-oriented scan of external entry points; not an exploitability proof."""
+    """
+    Conservative, high-recall call-graph approximation.
+    Custom modifiers and internal helpers are followed; uncertain parsing is
+    retained as a candidate rather than silently rejected.
+    """
     findings = findings or []
     functions = []
     combined = []
-    pattern = re.compile(
+    known_privilege = re.compile(
+        r"\b(onlyOwner|onlyAdmin|onlyRole|onlyGovernance|onlyOperator|onlyTreasury|"
+        r"onlyGuardian|onlyPauser|onlyMinter|onlyFactory|onlyAuthorized|onlyExecutor|"
+        r"onlyManager|onlyMultisig|onlyDAO|auth)\b",
+        flags=re.I,
+    )
+    guard_pattern = re.compile(
+        r"(_checkOwner\s*\(|_checkRole\s*\(|hasRole\s*\(|"
+        r"msg\.sender\s*(?:==|!=)\s*(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)\b|"
+        r"(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)\s*(?:==|!=)\s*msg\.sender|"
+        r"_msgSender\s*\(\s*\)\s*(?:==|!=)\s*(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)\b|"
+        r"(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)\s*(?:==|!=)\s*_msgSender\s*\(\s*\))",
+        flags=re.I,
+    )
+    modifier_pattern = re.compile(
+        r"\bmodifier\s+([A-Za-z_][A-Za-z_0-9]*)\s*(?:\([^)]*\))?\s*\{",
+        flags=re.S,
+    )
+    function_pattern = re.compile(
         r"\bfunction\s+([A-Za-z_][A-Za-z_0-9]*)\s*\((.*?)\)\s*([^{;]*)\{",
         flags=re.S,
     )
+    fallback_pattern = re.compile(
+        r"\b(fallback|receive)\s*\(\s*\)\s*([^{;]*)\{",
+        flags=re.S,
+    )
+
     for item in source_files:
         code = _source_without_comments(item.get("content", ""))
         combined.append(code)
-        for match in pattern.finditer(code):
+        privileged_modifiers = set()
+        for match in modifier_pattern.finditer(code):
+            closing = _matching_brace(code, match.end() - 1)
+            if closing is None:
+                continue
+            modifier_body = code[match.end():closing]
+            if known_privilege.search(match.group(1)) or guard_pattern.search(modifier_body):
+                privileged_modifiers.add(match.group(1))
+
+        for match in function_pattern.finditer(code):
             name, params, header = match.group(1), match.group(2), match.group(3)
             opening = match.end() - 1
             closing = _matching_brace(code, opening)
@@ -1278,59 +1314,72 @@ def inspect_unprivileged_surface(source_files, findings=None):
             visibility = "external" if re.search(r"\bexternal\b", header) else (
                 "public" if re.search(r"\bpublic\b", header) else "internal"
             )
-            privileged_modifier = bool(re.search(
-                r"\b(onlyOwner|onlyAdmin|onlyRole|onlyGovernance|onlyOperator|onlyTreasury|"
-                r"onlyGuardian|onlyPauser|onlyMinter|onlyFactory|onlyAuthorized|onlyExecutor|"
-                r"onlyManager|onlyMultisig|onlyDAO|auth)\b",
-                header, flags=re.I,
-            ))
+            modifiers = re.findall(r"\b([A-Za-z_][A-Za-z_0-9]*)\s*(?=\()", header)
             body = code[opening + 1:closing]
-            privileged_body = bool(re.search(
-                r"(_checkOwner\s*\(|_checkRole\s*\(|hasRole\s*\(|"
-                r"(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)"
-                r"\s*\[\s*msg\.sender\s*\]|"
-                r"msg\.sender\s*==\s*(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)\b|"
-                r"(?:owner|admin|governor|guardian|treasury|multisig|governance|operator)\s*==\s*msg\.sender)",
-                body, flags=re.I,
-            ))
+            privileged = (
+                bool(known_privilege.search(header))
+                or any(x in privileged_modifiers for x in modifiers)
+                or bool(guard_pattern.search(body))
+            )
             functions.append({
                 "name": name, "visibility": visibility,
-                "modifiers": re.findall(r"\b([A-Za-z_][A-Za-z_0-9]*)\s*(?=\()", header),
-                "params": _parameter_names(params), "body": body,
-                "privileged": privileged_modifier or privileged_body,
+                "modifiers": modifiers, "params": _parameter_names(params),
+                "body": body, "privileged": privileged,
             })
-        # Solidity fallback/receive entrypoints are externally callable too.
-        fallback_pattern = re.compile(r"\b(fallback|receive)\s*\(\s*\)\s*([^{;]*)\{", flags=re.S)
+
         for match in fallback_pattern.finditer(code):
-            opening = match.end() - 1
-            closing = _matching_brace(code, opening)
+            closing = _matching_brace(code, match.end() - 1)
             if closing is None:
                 continue
             functions.append({
-                "name": match.group(1),
-                "visibility": "external",
-                "modifiers": [],
-                "params": [],
-                "body": code[opening + 1:closing],
-                "privileged": False,
+                "name": match.group(1), "visibility": "external",
+                "modifiers": [], "params": [],
+                "body": code[match.end():closing], "privileged": False,
             })
 
+    # Build an approximate internal call graph. Overloaded functions are
+    # combined conservatively: if any definition is privileged or performs an
+    # external operation, callers are kept in the risk envelope.
     operation_pattern = re.compile(
-        r"(\.call\b|\.delegatecall\b|\.staticcall\b|functionCall\s*\(|functionDelegateCall\s*\(|"
-        r"safeTransfer(?:From)?\s*\(|transferFrom\s*\(|\.transfer\s*\(|\.send\s*\(|raw_call\s*\(|call\s*\{)",
+        r"(\.call\b|\.delegatecall\b|\.staticcall\b|\.callcode\b|"
+        r"functionCall\s*\(|functionDelegateCall\s*\(|"
+        r"safeTransfer(?:From)?\s*\(|transferFrom\s*\(|\.transfer\s*\(|"
+        r"\.send\s*\(|raw_call\s*\(|call\s*\{)",
         flags=re.I,
     )
-    helper_ops = {fn["name"]: bool(operation_pattern.search(fn["body"])) for fn in functions}
-    for _ in range(4):
+    helper_ops = {}
+    helper_low_level = {}
+    helper_guards = {}
+    for fn in functions:
+        name = fn["name"]
+        body = fn["body"]
+        helper_ops[name] = helper_ops.get(name, False) or bool(operation_pattern.search(body))
+        low_level = bool(re.search(
+            r"(\.call\b|\.delegatecall\b|\.staticcall\b|\.callcode\b|raw_call\s*\(|call\s*\{)",
+            body, flags=re.I,
+        ))
+        helper_low_level[name] = helper_low_level.get(name, False) or low_level
+        helper_guards[name] = helper_guards.get(name, False) or fn["privileged"]
+
+    for _ in range(8):
         changed = False
         for fn in functions:
-            if helper_ops.get(fn["name"]):
-                continue
-            for helper_name, has_ops in helper_ops.items():
-                if has_ops and re.search(r"\b" + re.escape(helper_name) + r"\s*\(", fn["body"]):
+            body = fn["body"]
+            for helper_name in tuple(helper_ops):
+                if helper_name == fn["name"]:
+                    continue
+                if not re.search(r"\b" + re.escape(helper_name) + r"\s*\(", body):
+                    continue
+                if helper_ops.get(helper_name) and not helper_ops.get(fn["name"]):
                     helper_ops[fn["name"]] = True
                     changed = True
-                    break
+                if helper_low_level.get(helper_name) and not helper_low_level.get(fn["name"]):
+                    helper_low_level[fn["name"]] = True
+                    changed = True
+                if helper_guards.get(helper_name) and not fn["privileged"]:
+                    fn["privileged"] = True
+                    helper_guards[fn["name"]] = True
+                    changed = True
         if not changed:
             break
 
@@ -1338,77 +1387,87 @@ def inspect_unprivileged_surface(source_files, findings=None):
     for finding in findings:
         if finding.get("impact") not in ("High", "Medium", "Low"):
             continue
-        match = re.search(r"\.([A-Za-z_][A-Za-z_0-9]*)\s*\(", str(finding.get("description") or ""))
-        if match:
+        description = str(finding.get("description") or "")
+        for match in re.finditer(r"\.([A-Za-z_][A-Za-z_0-9]*)\s*\(", description):
             finding_functions.add(match.group(1))
 
     public_functions, unprivileged, intermediaries = [], [], []
     for fn in functions:
         if fn["visibility"] not in ("external", "public"):
             continue
+        name = fn["name"]
         body = fn["body"]
-        has_op = helper_ops.get(fn["name"], False)
-        has_finding = fn["name"] in finding_functions
+        has_op = helper_ops.get(name, False)
+        has_low_level = helper_low_level.get(name, False)
+        has_finding = name in finding_functions
         callback = bool(re.search(
             r"(callback|hook|executeoperation|onflashloan|uniswapv[23]|onerc\d+received|"
             r"tokensreceived|ontoken_transfer|onbridgemessage|receive_message|fallback|receive)",
-            fn["name"], flags=re.I,
+            name, flags=re.I,
         ))
         summary = {
-            "function": fn["name"], "visibility": fn["visibility"],
-            "modifiers": fn["modifiers"], "privileged_gate_detected": fn["privileged"],
-            "external_asset_operation": has_op, "static_finding": has_finding,
-            "callback_like": callback, "body_excerpt": re.sub(r"\s+", " ", body)[:650],
+            "function": name, "visibility": fn["visibility"],
+            "modifiers": fn["modifiers"],
+            "privileged_gate_detected": fn["privileged"],
+            "external_asset_operation": has_op,
+            "external_low_level_call": has_low_level,
+            "static_finding": has_finding,
+            "callback_like": callback,
+            "body_excerpt": re.sub(r"\s+", " ", body)[:650],
         }
         public_functions.append(summary)
         if fn["privileged"] or not (has_op or has_finding or callback):
             continue
         unprivileged.append(summary)
 
-        params = {p.lower() for p in fn["params"]}
-        target_params = params.intersection({
-            "target", "to", "recipient", "receiver", "destination", "implementation",
-            "router", "executor", "callee", "spender", "pool", "bridge", "module",
-        })
-        data_params = params.intersection({
-            "data", "calldata", "payload", "userop", "operation", "message",
-            "input", "instructions", "transaction",
-        })
-        low_level = bool(re.search(
-            r"(\.call\b|\.delegatecall\b|\.staticcall\b|functionCall\s*\(|"
-            r"functionDelegateCall\s*\(|raw_call\s*\(|call\s*\{)",
-            body, flags=re.I,
-        ))
-        forwards_input = low_level and bool(
-            (target_params and data_params) or "msg.data" in body
-            or (target_params and re.search(r"\b(msg.sender|msg.value)\b", body))
-        )
-        if (callback and has_op) or forwards_input:
+        # A non-privileged public path reaching a low-level call is retained as
+        # a potential intermediary, even when every variable/function is oddly
+        # named. DeepSeek decides whether the target is fixed/trusted or
+        # attacker-controlled; the static stage intentionally favors recall.
+        if has_low_level or (callback and has_op):
             intermediaries.append({
-                "function": fn["name"], "callback_or_forwarder": True,
-                "target_parameters": sorted(target_params),
-                "data_parameters": sorted(data_params),
-                "reason": "Externally reachable non-privileged callback/forwarding path makes external calls.",
+                "function": name, "callback_or_forwarder": True,
+                "reason": (
+                    "Unprivileged external/callback entrypoint reaches a low-level external call; "
+                    "target control and transaction interception need manual review."
+                ),
             })
 
-    if not functions and re.search(r"(\.call\b|delegatecall|raw_call|safeTransfer|transferFrom)", "\n".join(combined)):
+    # If some functions parsed but all external surfaces failed to resolve,
+    # keep a synthetic review candidate when source/findings still show asset
+    # operations. A parser limitation must not become a silent false negative.
+    has_source_ops = bool(operation_pattern.search("\n".join(combined)))
+    has_material_finding = any(
+        f.get("impact") in ("High", "Medium")
+        and not f.get("triage_note")
+        for f in findings
+    )
+    if not unprivileged and (has_source_ops or has_material_finding):
         unprivileged.append({
-            "function": "unparsed_external_surface", "visibility": "unknown",
-            "modifiers": [], "privileged_gate_detected": False,
-            "external_asset_operation": True, "static_finding": bool(findings),
+            "function": "unresolved_external_call_graph",
+            "visibility": "unknown",
+            "modifiers": [],
+            "privileged_gate_detected": False,
+            "external_asset_operation": has_source_ops,
+            "external_low_level_call": has_source_ops,
+            "static_finding": has_material_finding,
             "callback_like": True,
-            "body_excerpt": "Source parser could not reliably identify function boundaries; retained for manual review.",
+            "body_excerpt": (
+                "Source parser/call graph could not establish all access paths; "
+                "retained for high-recall manual review."
+            ),
         })
-        intermediaries.append({
-            "function": "unparsed_external_surface", "callback_or_forwarder": True,
-            "target_parameters": [], "data_parameters": [],
-            "reason": "Parser fallback retained an unclassified external-call surface.",
-        })
+        if has_source_ops:
+            intermediaries.append({
+                "function": "unresolved_external_call_graph",
+                "callback_or_forwarder": True,
+                "reason": "Unresolved public/helper call graph retained as possible intermediary.",
+            })
 
     return {
-        "public_external_functions": public_functions[:50],
-        "unprivileged_asset_functions": unprivileged[:30],
-        "intermediary_functions": intermediaries[:20],
+        "public_external_functions": public_functions[:80],
+        "unprivileged_asset_functions": unprivileged[:40],
+        "intermediary_functions": intermediaries[:30],
         "unprivileged_candidate": bool(unprivileged),
         "intermediary_candidate": bool(intermediaries),
         "evidence_count": len(unprivileged),
