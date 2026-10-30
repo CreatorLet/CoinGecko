@@ -1685,15 +1685,30 @@ def scan_target(entry, ai=False, min_score=30, min_exposure_usd=500.0, include_s
         result["contract_name"] = source.get("ContractName")
         result["source_provider"] = source.get("_source_provider", "Etherscan")
         if source.get("Proxy") == "1":
-            result["proxy_implementation"] = source.get("Implementation")
-            result["note"] = "Proxy detected; implementation analysis is not supported in this version."
-            result["status"] = "skipped_low_transparency"
-            result["skip_reason"] = (
-                "Proxy/implementation path is not handled yet. Skipping this target rather than "
-                "guessing at implementation logic; continue with other candidates."
-            )
-            result["research_disposition"] = "skip_unresolved_proxy"
-            return result
+            implementation = str(source.get("Implementation") or "").strip()
+            result["proxy_implementation"] = implementation or None
+            if not ADDRESS.fullmatch(implementation) or implementation.lower() == address.lower():
+                result["status"] = "skipped_low_transparency"
+                result["skip_reason"] = "Proxy implementation address is missing or invalid."
+                result["research_disposition"] = "skip_unresolved_proxy"
+                return result
+            try:
+                implementation_source = verified_source(net, implementation)
+            except RuntimeError as exc:
+                result["status"] = "skipped_low_transparency"
+                result["skip_reason"] = "Proxy implementation source unavailable: " + str(exc)[:700]
+                result["research_disposition"] = "skip_unresolved_proxy"
+                return result
+            if implementation_source.get("Proxy") == "1":
+                result["status"] = "skipped_low_transparency"
+                result["skip_reason"] = "Nested proxy implementation resolution is not supported; refusing to guess."
+                result["research_disposition"] = "skip_unresolved_proxy"
+                return result
+            result["analyzed_source_address"] = implementation
+            result["proxy_analysis"] = "Verified implementation source analyzed; exposure is measured at proxy address."
+            source = implementation_source
+            result["contract_name"] = source.get("ContractName") or result["contract_name"]
+            result["source_provider"] = source.get("_source_provider", result["source_provider"])
 
         result["compiler_version"] = select_compiler(source)
         with tempfile.TemporaryDirectory() as dirname:
