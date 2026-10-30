@@ -1075,24 +1075,36 @@ def scan_related_contract(network, address, relationship, ai=False, min_score=30
             slither_score, findings = rank(detectors)
             signal_score, signals = source_risk_signals(root, paths)
             review_score = min(100, slither_score + signal_score)
+            source_files = [
+                {"path": str(path), "content": (root / path).read_text(encoding="utf-8", errors="ignore")}
+                for path in paths
+            ]
+            surface = inspect_unprivileged_surface(source_files, findings)
+            exposure = estimate_asset_exposure(
+                network, address, {"reserve_usd": 0}, source, paths, root
+            )
+            gate = candidate_review_gate(exposure, surface, 500.0)
             result.update({
                 "slither_score": slither_score,
                 "findings": findings,
                 "source_signal_score": signal_score,
                 "source_risk_signals": signals,
                 "review_score": review_score,
+                "asset_exposure": exposure,
+                "unprivileged_surface": surface,
+                "review_gate": gate,
                 "status": "screened",
             })
-            if ai and ai_eligible:
+            if ai and gate["eligible"]:
                 result["deepseek"] = deepseek_review(
                     {"network": network, "address": address,
-                     "relationship": relationship, "review_score": review_score},
-                    findings, [root / path for path in paths], risk_signals=signals)
+                     "relationship": relationship, "review_score": review_score,
+                     "asset_exposure": exposure, "unprivileged_surface": surface},
+                    findings, [root / path for path in paths], risk_signals=signals,
+                    max_chars=60000, max_output_tokens=6000)
                 result["status"] = "reviewed"
             elif ai:
-                result["deepseek_skipped_reason"] = (
-                    f"Candidate source score {review_score} is below --min-score {min_score}."
-                )
+                result["deepseek_skipped_reason"] = gate["reason"]
     except RuntimeError as exc:
         if "No verified source found." in str(exc):
             result["status"] = "skipped_low_transparency"
