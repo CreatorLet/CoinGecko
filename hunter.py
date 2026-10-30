@@ -2259,10 +2259,43 @@ def _save_autopilot_state(state):
 
 
 def _discover_autopilot_candidates(state):
-    if state.get("discovery_done"):
-        return {"status": "already_discovered", "candidate_count": len(state.get("candidates") or [])}
+    """Fetch the next incremental source pages and append unseen candidates."""
     network = state["network"]
-    pool_rows = discover(network, state["pages"], state["limit"])
+    page_size = 200
+    pool_rows, verified_rows = [], []
+    gecko_error = verified_error = None
+
+    if not state.get("gecko_pass_complete"):
+        page = int(state.get("gecko_page_next") or 1)
+        try:
+            pool_rows = discover_gecko_page(network, page)
+            state["gecko_page_next"] = page + 1
+            if page >= 10 or not pool_rows:
+                state["gecko_pass_complete"] = True
+        except Exception as exc:
+            gecko_error = str(exc)[:600]
+            state["gecko_pass_complete"] = True
+
+    if state.get("include_verified") and not state.get("sourcify_pass_complete"):
+        try:
+            import frontier
+            verified_rows = frontier.discover_verified(
+                network, limit=page_size,
+                after_match_id=state.get("sourcify_after_match_id"),
+            )
+            if verified_rows:
+                next_cursor = verified_rows[-1].get("sourcify_match_id")
+                if not next_cursor:
+                    verified_error = "Sourcify page lacked a matchId cursor; stopped to avoid repeating it."
+                    state["sourcify_pass_complete"] = True
+                else:
+                    state["sourcify_after_match_id"] = str(next_cursor)
+            else:
+                state["sourcify_pass_complete"] = True
+        except Exception as exc:
+            verified_error = str(exc)[:600]
+            state["sourcify_pass_complete"] = True
+
     combined = []
     for row in pool_rows:
         address = row.get("base_token")
@@ -2273,25 +2306,15 @@ def _discover_autopilot_candidates(state):
         candidate["target_kind"] = "pool_token"
         candidate["discovery_source"] = "geckoterminal_new_pool"
         combined.append(candidate)
-
-    verified_count = 0
-    verified_error = None
-    if state["include_verified"]:
-        try:
-            import frontier
-            verified_rows = frontier.discover_verified(network, state["verified_limit"])
-            for row in verified_rows:
-                address = row.get("address")
-                if not isinstance(address, str) or not ADDRESS.fullmatch(address):
-                    continue
-                candidate = dict(row)
-                candidate["target_kind"] = "verified_contract"
-                candidate["discovery_source"] = "sourcify_recent_verified"
-                candidate.setdefault("reserve_usd", "0")
-                combined.append(candidate)
-                verified_count += 1
-        except Exception as exc:
-            verified_error = str(exc)[:600]
+    for row in verified_rows:
+        address = row.get("address")
+        if not isinstance(address, str) or not ADDRESS.fullmatch(address):
+            continue
+        candidate = dict(row)
+        candidate["target_kind"] = "verified_contract"
+        candidate["discovery_source"] = "sourcify_recent_verified"
+        candidate.setdefault("reserve_usd", "0")
+        combined.append(candidate)
 
     merged = {}
     for item in combined:
@@ -2311,38 +2334,52 @@ def _discover_autopilot_candidates(state):
         if item.get("verified_at") and not existing.get("verified_at"):
             existing["verified_at"] = item["verified_at"]
 
-    candidates = list(merged.values())
-    candidates.sort(
-        key=lambda row: str(row.get("created_at") or row.get("verified_at") or ""),
-        reverse=True,
-    )
-    candidates = [
-        item for item in candidates
+    pending = list((state.get("candidates") or [])[state.get("next_index", 0):])
+    queued = {
+        (network, str(item.get("address", "")).lower())
+        for item in pending if isinstance(item, dict)
+    }
+    if state.get("current") and state["current"].get("address"):
+        queued.add((network, str(state["current"]["address"]).lower()))
+    fresh = [
+        item for item in merged.values()
         if (network, item["address"].lower()) not in state["processed_addresses"]
+        and (network, item["address"].lower()) not in queued
     ]
+    fresh.sort(key=lambda row: str(row.get("created_at") or row.get("verified_at") or ""), reverse=True)
     if state.get("max_candidates", 0) > 0:
-        candidates = candidates[:state["max_candidates"]]
-    state["candidates"] = candidates
+        remaining_cap = max(0, state["max_candidates"] - state.get("cycle_candidate_count", 0))
+        fresh = fresh[:remaining_cap]
+    state["cycle_candidate_count"] = state.get("cycle_candidate_count", 0) + len(fresh)
+    state["candidates"] = pending + fresh
     state["next_index"] = 0
-    state["discovery_done"] = True
+    state["discovery_batches"] = state.get("discovery_batches", 0) + 1
     state["discovery_stats"] = {
+        "gecko_page_fetched": state.get("gecko_page_next", 1) - 1 if (pool_rows or gecko_error) else None,
         "gecko_new_pool_rows": len(pool_rows),
-        "verified_contract_rows": verified_count,
+        "verified_contract_rows": len(verified_rows),
+        "verified_source_cursor": state.get("sourcify_after_match_id"),
+        "gecko_error": gecko_error,
         "verified_discovery_error": verified_error,
-        "combined_unique_candidates": len(merged),
-        "unprocessed_candidates": len(candidates),
+        "new_unique_candidates": len(fresh),
+        "queued_candidates": len(state["candidates"]),
+        "gecko_pass_complete": bool(state.get("gecko_pass_complete")),
+        "sourcify_pass_complete": bool(state.get("sourcify_pass_complete")),
     }
     _save_autopilot_state(state)
     return {
-        "status": "discovered",
+        "status": (
+            "source_feeds_exhausted"
+            if state.get("gecko_pass_complete") and state.get("sourcify_pass_complete")
+            else ("candidates_added" if fresh else "batch_empty_more_available")
+        ),
         **state["discovery_stats"],
         "first_candidates": [
-            {"address": x["address"], "name": x.get("name"),
-             "reserve_usd": x.get("reserve_usd"), "target_kind": x.get("target_kind")}
-            for x in candidates[:12]
+            {"address": item["address"], "name": item.get("name"),
+             "reserve_usd": item.get("reserve_usd"), "target_kind": item.get("target_kind")}
+            for item in state["candidates"][:12]
         ],
     }
-
 
 def _screen_next_autopilot_candidate(state):
     current = state.get("current")
@@ -2353,29 +2390,30 @@ def _screen_next_autopilot_candidate(state):
             "candidate": candidate_brief(current),
         }
     state["current"] = None
-    state["cycle_screened"] = state.get("cycle_screened", 0)
     auto_skips = []
+
+    if state.get("next_index", 0) >= len(state.get("candidates") or []):
+        if not (state.get("gecko_pass_complete") and state.get("sourcify_pass_complete")):
+            batch = _discover_autopilot_candidates(state)
+            if state.get("next_index", 0) >= len(state.get("candidates") or []):
+                return {
+                    "status": batch.get("status", "batch_empty_more_available"),
+                    "message": "This page had no unseen candidates. Request another discovery batch while the search budget remains.",
+                    "more_source_pages_available": not (state.get("gecko_pass_complete") and state.get("sourcify_pass_complete")),
+                    "discovery": batch,
+                }
+
     while state["next_index"] < len(state.get("candidates") or []):
         if state.get("max_screened", 0) > 0 and state["cycle_screened"] >= state["max_screened"]:
             break
-        if (
-            state["max_screened_per_day"] > 0
-            and state["daily_screened_count"] >= state["max_screened_per_day"]
-        ):
-            return {
-                "status": "daily_screen_budget_reached",
-                "contracts_screened_today": state["daily_screened_count"],
-                "daily_screen_budget": state["max_screened_per_day"],
-                "auto_skips": auto_skips[-8:],
-            }
+        if state["max_screened_per_day"] > 0 and state["daily_screened_count"] >= state["max_screened_per_day"]:
+            return {"status": "daily_screen_budget_reached", "contracts_screened_today": state["daily_screened_count"],
+                    "daily_screen_budget": state["max_screened_per_day"], "auto_skips": auto_skips[-8:]}
         if state["review_limit"] > 0 and state["daily_review_count"] >= state["review_limit"]:
-            return {
-                "status": "daily_review_budget_reached",
-                "deepseek_reviews_used": state["review_count"],
-                "deepseek_reviews_today": state["daily_review_count"],
-                "review_budget_per_utc_day": state["review_limit"],
-                "auto_skips": auto_skips[-8:],
-            }
+            return {"status": "daily_review_budget_reached", "deepseek_reviews_used": state["review_count"],
+                    "deepseek_reviews_today": state["daily_review_count"], "review_budget_per_utc_day": state["review_limit"],
+                    "auto_skips": auto_skips[-8:]}
+
         candidate = state["candidates"][state["next_index"]]
         state["next_index"] += 1
         address = candidate["address"]
@@ -2383,24 +2421,18 @@ def _screen_next_autopilot_candidate(state):
         if identity in state["processed_addresses"]:
             continue
         print(f"[Hunter autopilot] Screening {address} ({candidate.get('name') or candidate.get('target_kind')})")
-        result = scan_target(
-            candidate, ai=False, min_score=0,
-            min_exposure_usd=state["minimum_exposure_usd"],
-            include_source=True,
-        )
+        result = scan_target(candidate, ai=False, min_score=0,
+                             min_exposure_usd=state["minimum_exposure_usd"], include_source=True)
         state["daily_screened_count"] += 1
         state["cycle_screened"] += 1
         if result.get("status") == "screened":
             state["processed_addresses"].add(identity)
         result["autopilot_cycle"] = state["cycles_completed"] + 1
         result["autopilot_decision"] = "awaiting_deepseek_triage"
-        existing_index = next(
-            (i for i, row in enumerate(state["records"])
-             if row.get("network") == state["network"]
-             and str(row.get("address", "")).lower() == address.lower()
-             and row.get("status") == "awaiting_agent_decision"),
-            None,
-        )
+        existing_index = next((i for i, row in enumerate(state["records"])
+                               if row.get("network") == state["network"]
+                               and str(row.get("address", "")).lower() == address.lower()
+                               and row.get("status") == "awaiting_agent_decision"), None)
         if existing_index is None:
             state["records"].append(result)
         else:
@@ -2409,10 +2441,8 @@ def _screen_next_autopilot_candidate(state):
         if result.get("status") != "screened":
             result["autopilot_decision"] = "auto_skipped"
             result["autopilot_skip_reason"] = result.get("skip_reason") or result.get("error") or result.get("note")
-            auto_skips.append({
-                "address": address, "status": result.get("status"),
-                "reason": str(result.get("autopilot_skip_reason") or "")[:180],
-            })
+            auto_skips.append({"address": address, "status": result.get("status"),
+                               "reason": str(result.get("autopilot_skip_reason") or "")[:180]})
             result.pop("_agent_source_files", None)
             _save_autopilot_state(state)
             continue
@@ -2422,10 +2452,8 @@ def _screen_next_autopilot_candidate(state):
             result["status"] = "filtered"
             result["autopilot_decision"] = "auto_skipped"
             result["autopilot_skip_reason"] = gate.get("reason")
-            auto_skips.append({
-                "address": address, "status": "filtered",
-                "reason": str(gate.get("reason") or "")[:180],
-            })
+            auto_skips.append({"address": address, "status": "filtered",
+                               "reason": str(gate.get("reason") or "")[:180]})
             result.pop("_agent_source_files", None)
             _save_autopilot_state(state)
             continue
@@ -2434,20 +2462,21 @@ def _screen_next_autopilot_candidate(state):
         result["status"] = "awaiting_agent_decision"
         result["autopilot_decision"] = "awaiting_agent_decision"
         _save_autopilot_state(state)
-        return {
-            "status": "candidate_ready_for_agent_decision",
-            "auto_skipped_before_this_candidate": auto_skips[-8:],
-            "candidate": candidate_brief(result),
-            "instruction": "Decide whether there is a plausible unprivileged security issue. Call the deep-review tool or skip this candidate.",
-        }
+        return {"status": "candidate_ready_for_agent_decision",
+                "auto_skipped_before_this_candidate": auto_skips[-8:],
+                "candidate": candidate_brief(result),
+                "instruction": "Decide whether there is a plausible unprivileged security issue. Call the deep-review tool or skip this candidate."}
 
-    return {
-        "status": "screen_limit_reached" if state.get("max_screened", 0) > 0 and state["cycle_screened"] >= state["max_screened"] else "candidate_list_exhausted",
-        "screened_this_cycle": state["cycle_screened"],
-        "deepseek_reviews_used": state["review_count"],
-        "auto_skipped": auto_skips[-12:],
-    }
-
+    if state.get("max_screened", 0) > 0 and state["cycle_screened"] >= state["max_screened"]:
+        status = "screen_limit_reached"
+    elif state.get("max_screened_per_day", 0) > 0 and state["daily_screened_count"] >= state["max_screened_per_day"]:
+        status = "daily_screen_budget_reached"
+    else:
+        status = "candidate_batch_exhausted"
+    return {"status": status, "screened_this_cycle": state["cycle_screened"],
+            "deepseek_reviews_used": state["review_count"],
+            "more_source_pages_available": not (state.get("gecko_pass_complete") and state.get("sourcify_pass_complete")),
+            "auto_skipped": auto_skips[-12:]}
 
 def _deep_review_autopilot_candidate(state):
     current = state.get("current")
