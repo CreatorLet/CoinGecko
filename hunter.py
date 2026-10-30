@@ -1034,16 +1034,16 @@ def bounty_worthiness(source, paths, root, entry, score, signal_score, findings)
         factors.append("pool liquidity is contextual, not necessarily controlled by this contract")
     # Remove comments before checking for callable fund handling. Names in
     # documentation, interfaces, and imported libraries should not alone qualify.
-    code = re.sub(r"/\\*.*?\\*/|//[^\\n]*", "", code, flags=re.S)
+    code = re.sub(r"/\*.*?\*/|//[^\n]*", "", code, flags=re.S)
     financial_functions = re.findall(
-        r"\\bfunction\\s+([A-Za-z_][A-Za-z_0-9]*)\\s*\\([^;{]*\\)[^{;]*\\{",
+        r"\bfunction\s+([A-Za-z_][A-Za-z_0-9]*)\s*\([^;{]*\)[^{;]*\{",
         code, flags=re.S,
     )
     custody = any(re.search(
         r"(deposit|withdraw|redeem|borrow|repay|liquidat|claim|settle|stake|unstake|swap|"
         r"purchase|buy|sell|mint|refund|distribut|payout|collect|fund|escrow)",
         fn) for fn in financial_functions)
-    transfers = bool(re.search(r"(safetransfer|transferfrom|\\.transfer\\(|\\.call\\s*\\{value|raw_call)", code))
+    transfers = bool(re.search(r"(safetransfer|transferfrom|\.transfer\(|\.call\s*\{value|raw_call)", code))
     accounting = bool(re.search(
         r"(totalassets|pendingbalance|collateral|reserve|shares|liabilit|debt|accrued|"
         r"depositbalance|withdrawalbalance|totalpending|totalescrow)", code))
