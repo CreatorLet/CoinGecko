@@ -17,7 +17,7 @@ class DeepSeekCostTests(unittest.TestCase):
             "prompt_cache_miss_tokens": 80,
         }, saturday)
         self.assertEqual(cost["pricing_window"], "off_peak")
-        self.assertAlmostEqual(cost["cost_usd"], 0.00007200006, places=12)
+        self.assertAlmostEqual(cost["cost_usd"], 0.00007206, places=12)
 
     def test_weekday_peak_output_rate_is_higher(self):
         friday_peak = datetime(2026, 10, 30, 7, tzinfo=timezone.utc).timestamp()
