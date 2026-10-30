@@ -2657,6 +2657,7 @@ def run_deepseek_hunter_agent(state, max_steps=0):
         tool_calls = message.get("tool_calls") or []
         if not tool_calls:
             state["agent_final_message"] = message.get("content") or ""
+            state["finished"] = True
             state["finish_reason"] = "model_returned_without_tool_call"
             _save_autopilot_state(state)
             break
