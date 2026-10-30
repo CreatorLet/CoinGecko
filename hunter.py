@@ -187,20 +187,25 @@ def goplus_token_security(network, address):
             return {"status": "unavailable", "reason": auth_error, "data": {}}
         # Without credentials, still try the documented permissionless endpoint.
     try:
-        response = requests.get(
-            url, params={"contract_addresses": address.lower()},
-            headers=headers, timeout=25,
-        )
-        if response.status_code in (401, 403) and headers.get("Authorization"):
-            # API reference pages differ on raw-token vs Bearer formatting;
-            # retry once with Bearer if raw-token authorization was rejected.
+        params = {"contract_addresses": address.lower()}
+        cache_key = request_cache_key(url, params, headers.get("Authorization"))
+        cache_hit, payload = cache_get("http_json", cache_key, 600)
+        if not cache_hit:
             response = requests.get(
-                url, params={"contract_addresses": address.lower()},
-                headers={"accept": "application/json", "Authorization": "Bearer " + headers["Authorization"]},
-                timeout=25,
+                url, params=params, headers=headers, timeout=25,
             )
-        response.raise_for_status()
-        payload = response.json()
+            if response.status_code in (401, 403) and headers.get("Authorization"):
+                # API reference pages differ on raw-token vs Bearer formatting;
+                # retry once with Bearer if raw-token authorization was rejected.
+                headers = {
+                    "accept": "application/json",
+                    "Authorization": "Bearer " + headers["Authorization"],
+                }
+                response = requests.get(url, params=params, headers=headers, timeout=25)
+                cache_key = request_cache_key(url, params, headers.get("Authorization"))
+            response.raise_for_status()
+            payload = response.json()
+            cache_set("http_json", cache_key, payload)
     except (requests.RequestException, ValueError) as exc:
         reason = str(exc)[:600]
         if auth_error:
